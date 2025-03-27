@@ -149,8 +149,28 @@ variable (F : RatFunc ℂ)
 #check F.num
 #check F.denom
 
-def has_pole_at (z : ℂ) (F : RatFunc ℂ) := F.denom.eval z = 0
+/-- Definitions for some Props about Rational functions, specif-/
+def has_pole_at (z : ℂ) (F : RatFunc ℂ) : Prop := F.denom.eval z = 0
+-- TODO: A version without the eval
 
-def has_pole_in (E : Set ℂ) (F : RatFunc ℂ) := ∃ z ∈ E, has_pole_at z F
+def has_poles_in (E : Set ℂ) (F : RatFunc ℂ) := ∃ z ∈ E, has_pole_at z F
 
-def has_no_pole_in (E : Set ℂ) (F : RatFunc ℂ) := ¬ has_pole_in E F
+def has_no_poles_in (E : Set ℂ) (F : RatFunc ℂ) := ¬ has_poles_in E F
+
+def only_poles_in (E : Set ℂ) (F : RatFunc ℂ) := has_poles_in E F ∧ has_no_poles_in (Eᶜ) F
+
+/-- Defined coercion from Set ℂ to Set (OnePoint ℂ) and backwards -/
+def coe_set : Set ℂ → Set (OnePoint ℂ) := fun E ↦ {↑z | z ∈ E}
+instance coe : Coe (Set ℂ) (Set (OnePoint ℂ)) := ⟨coe_set⟩
+
+def rev_coe_set : Set (OnePoint ℂ) → Set ℂ := fun E ↦ {z | ↑z ∈ E}
+instance rev_coe : Coe (Set (OnePoint ℂ)) (Set ℂ) := ⟨rev_coe_set⟩
+
+/-- **Runge's Theorem**
+Suppose `Ω` is an open set in ℂ, `K` is a compact subset and `E` is set which intersects every connected component of
+`ℂ_infty \ K`. If `f` is a function which is complex differentiable on `Ω`, then for every `ε > 0` there exists a
+rational function `R` such that `∀ x ∈ Ω, |f(x) - R(x)| < ε`.
+-/
+theorem runges_theorem {Ω K : Set ℂ} {E : Set (OnePoint ℂ)} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
+    (hE : ∀ z ∈  (↑K)ᶜ, connectedComponentIn (↑K)ᶜ z ∩ E ≠ ∅) (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∀ ε > 0,
+    ∃ R : RatFunc ℂ, (only_poles_in E R) ∧ (∀ x ∈ Ω, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by sorry
