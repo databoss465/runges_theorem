@@ -2,10 +2,8 @@ import Mathlib.Analysis.Complex.Basic
 import Mathlib.Analysis.Complex.CauchyIntegral
 import Mathlib.CategoryTheory.Category.Basic
 import Mathlib.CategoryTheory.ConnectedComponents
--- import Mathlib.FieldTheory.RatFunc
 import Mathlib.Order.Interval.Set.Basic
 import Mathlib.Topology.Basic
--- import Mathlib.FieldTheory
 import Mathlib
 
 open Set TopologicalSpace RatFunc
@@ -126,6 +124,7 @@ TODO:
 1. CIF_Rect : f is diff on all of Rect, value at center
 2. CIF_Rect : f is diff on all of Rect, value anywhere in Rect
 3. CIF_Rect : f is not diff on S, value at points not in S
+4. CIF_Rect : Evaluates to zero if ppoints outside rect
 Tentatively we need these. Confirm what all we actually need after proof sketch.
 -/
 
@@ -149,15 +148,29 @@ variable (F : RatFunc ℂ)
 #check F.num
 #check F.denom
 
-/-- Definitions for some Props about Rational functions, specif-/
-def has_pole_at (z : ℂ) (F : RatFunc ℂ) : Prop := F.denom.eval z = 0
+/-- Definitions for some Props about Rational functions, with respect to poles-/
+def pole_at (z : ℂ) (F : RatFunc ℂ) : Prop := F.denom.eval z = 0
 -- TODO: A version without the eval
 
-def has_poles_in (E : Set ℂ) (F : RatFunc ℂ) := ∃ z ∈ E, has_pole_at z F
+def poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := ∃ z ∈ E, pole_at z F
 
-def has_no_poles_in (E : Set ℂ) (F : RatFunc ℂ) := ¬ has_poles_in E F
+def no_poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := ¬ poles_in E F
 
-def only_poles_in (E : Set ℂ) (F : RatFunc ℂ) := has_poles_in E F ∧ has_no_poles_in (Eᶜ) F
+def only_poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := poles_in E F ∧ no_poles_in (Eᶜ) F
+
+-- If z ≠ ∞, pole_at' z F = pole_at (↑z) F
+-- If z = ∞, pole_at' z F = deg F.num > deg F.denom
+def pole_at' (z: (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := sorry
+
+def pole_in' (E : Set (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := ∃ z ∈ E, pole_at' z F
+
+def no_pole_in' (E : Set (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := ¬ pole_in' E F
+
+def only_poles_in' (E : Set (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := pole_in' E F ∧ no_pole_in' (Eᶜ) F
+
+-- theorem only_pole_at_infty_pol {F : RatFunc ℂ} (h : pole_at ∞ F) :
+
+
 
 /-- Defined coercion from Set ℂ to Set (OnePoint ℂ) and backwards -/
 def coe_set : Set ℂ → Set (OnePoint ℂ) := fun E ↦ {↑z | z ∈ E}
@@ -165,6 +178,8 @@ instance coe : Coe (Set ℂ) (Set (OnePoint ℂ)) := ⟨coe_set⟩
 
 def rev_coe_set : Set (OnePoint ℂ) → Set ℂ := fun E ↦ {z | ↑z ∈ E}
 instance rev_coe : Coe (Set (OnePoint ℂ)) (Set ℂ) := ⟨rev_coe_set⟩
+
+
 
 -- Move this to Runge.lean later
 /-- **Runge's Theorem**
@@ -174,4 +189,65 @@ rational function `R` such that `∀ x ∈ Ω, |f(x) - R(x)| < ε`.
 -/
 theorem runges_theorem {Ω K : Set ℂ} {E : Set (OnePoint ℂ)} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
     (hE : ∀ z ∈  (↑K)ᶜ, connectedComponentIn (↑K)ᶜ z ∩ E ≠ ∅) (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∀ ε > 0,
-    ∃ R : RatFunc ℂ, (only_poles_in E R) ∧ (∀ x ∈ Ω, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by sorry
+    ∃ R : RatFunc ℂ, (only_poles_in' E R) ∧ (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by
+
+    intro ε hε
+    have hε' : ε / 2 > 0 := by
+        apply div_pos
+        · exact hε
+        · exact zero_lt_two
+
+    -- TODO: Define Grid_Contour
+    /-obtain ⟨rγ, hγ⟩ := separation_lemma hK kΩ hf
+    h_total:= approximation_lemma γ K f
+    specialize h_total ε/2 hε'
+    Then h_total becomes ∃ R : RatFunc ℂ, (only_poles_in' (bdry γ)) ∧ (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε/2
+    obtain ⟨R, ⟨_, hR₁⟩ := hR
+    -/
+
+    obtain R : RatFunc ℂ := by sorry
+    have hR₁ : ∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε / 2 := by sorry
+
+    -- TODO: Define B E K
+    /-Define B E K := {f : ℂ → ℂ | (ContinuousOn f K) ∧ ( ∀ ε > 0, ∃ R : RatFunc ℂ, (only_poles_in' E R) ∧ (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε)
+    Show that B E K is a closed subalgebra ?
+    Show that ∀ a ∈ ℂ \ K, (z - a)⁻¹ ∈ B E K
+
+    Show that R ∈ B E K since it is a closed subalgebra
+    R ∈ B E K ↔ hR'
+    -/
+
+    have hR' : ∀ ε > 0, ∃ R' : RatFunc ℂ, (only_poles_in' E R') ∧
+            (∀ x ∈ K, ‖R.eval (RingHom.id ℂ) x - R'.eval (RingHom.id ℂ) x‖ < ε) := by sorry
+
+    specialize hR' (ε / 2) hε'
+    obtain ⟨R', hR'₁⟩ := hR'
+    use R'
+    constructor
+    · exact hR'₁.1
+    · have hR'' : ∀ x ∈ K, ‖f x - R'.eval (RingHom.id ℂ) x‖ < ε := by
+        intro x hx
+        calc
+        ‖f x - eval (RingHom.id ℂ) x R'‖
+            = ‖f x - R.eval (RingHom.id ℂ) x + R.eval (RingHom.id ℂ) x - R'.eval (RingHom.id ℂ) x‖ := by
+            rw [←sub_add_sub_cancel (f x) (R.eval (RingHom.id ℂ) x) (R'.eval (RingHom.id ℂ) x), ←add_sub_assoc]
+        _  ≤ ‖f x - R.eval (RingHom.id ℂ) x‖ + ‖R.eval (RingHom.id ℂ) x - R'.eval (RingHom.id ℂ) x‖ := by
+            rw [add_sub_assoc]
+            apply norm_add_le
+        _ < ε / 2 + ε / 2 := by
+            apply add_lt_add
+            · exact hR₁ x hx
+            · exact hR'₁.2 x hx
+        _ = ε := by apply add_halves
+      exact hR''
+
+/-
+theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
+    (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∃ γ : Grid_Contour, (as_set γ ⊆ Ω \ K) ∧ (∀ z ∈ K,
+    integral γ ((z - a)⁻¹ • f z) = 2 * π * I * f a) := by sorry
+
+theorem approximation_lemma {K : Set ℂ} {γ : Grid_Contour} {f : ℂ → ℂ} (hK : IsCompact K)
+    (hγ'₁ : bdry γ ∩ K = ∅) (hγ'₂ : ∀ z ∈ K, integral γ ((z - a)⁻¹ • f z) = 2 * π * I * f a)
+    (hf' : ContinuousOn f (bdry γ)) : ∀ ε > 0, ∃ R : RatFunc ℂ, (only_poles_in' (bdry γ)) ∧
+    (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by sorry
+-/
