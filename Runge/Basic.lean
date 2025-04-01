@@ -6,14 +6,7 @@ import Mathlib.Order.Interval.Set.Basic
 import Mathlib.Topology.Basic
 import Mathlib
 
-open Set TopologicalSpace RatFunc ContinuousMap Metric
-
-#check Complex
-variable {U V : Set ℂ}
-variable {z : ℂ}(h : z ∈ U)
-#check IsOpen U
-#check IsOpen (closure U)
-#check connectedComponentIn U z ∩ V ≠ ∅
+open Set TopologicalSpace RatFunc ContinuousMap Metric Complex Polynomial
 
 /-- **Unnamed Lemma** This gives us some specific conditions under which we can assert that two open sets in ℂ
 are equal. We will need this later when we have to prove the membership of (z-a)^{-1} in B(E)
@@ -117,7 +110,15 @@ lemma open_subset_eq_of_boundary_disjoint_and_intersects_components {U V : Set �
 
     · exact h₂
 
+
 #check Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
+-- In my hypothesis for Runge's Theorem, f is Differentiable over all of Ω, and thus over all of K. Since Γ would be within Ω \ K,
+-- we shall only take the hypothesis that f is diffentaible on the closed square.
+-- consider making all rectangles squares... We anyway need unions of squares
+
+noncomputable def integral_boundary_rect {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z w : ℂ) := (∫ x : ℝ in z.re..w.re, f (x + z.im * I) - ∫ x : ℝ in z.re..w.re, f (x + w.im * I)) +
+  I • (∫ y : ℝ in z.im..w.im, f (w.re + y * I) - ∫ y : ℝ in z.im..w.im, f (z.re + y * I))
 
 -- TODO: Fix this statement
 lemma integral_boundary_rect_eq_circleIntegral {E : Type u} [NormedAddCommGroup E]
@@ -129,30 +130,22 @@ lemma integral_boundary_rect_eq_circleIntegral {E : Type u} [NormedAddCommGroup 
       I • ∫ y : ℝ in z.im..w.im, ((w.re + y * I)⁻¹ • f (w.re + y * I)) -
       I • ∫ y : ℝ in z.im..w.im, ((z.re + y * I)⁻¹ • f (z.re + y * I)) = ∮ z in C((z + w) / 2, ‖z-w‖ / √2), f z := by sorry
 
-/-
-TODO:
-1. CIF_Rect : f is diff on all of Rect, value at center
-2. CIF_Rect : f is diff on all of Rect, value anywhere in Rect
-3. CIF_Rect : f is not diff on S, value at points not in S
-4. CIF_Rect : Evaluates to zero if ppoints outside rect
-Tentatively we need these. Confirm what all we actually need after proof sketch.
-Prove all of these by the above lemma!
--/
+variable {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z : ℂ)(R : ℝ) (hR : 0 < R)
+#check ∮ ζ in C(z, R), f ζ
 
-/-- **Cauchy integral formula (Rectangle)** : if `f : ℂ → E` is continuous on a closed rectangle with its edges parallel to
-coordinate axes, and diagonally opposite points at `z` and `w`, and `f` is complex differentiable at all but countably many
-points of its interior, then for any `w` in this interior we have $∮_{R}(y-c)^{-1}f(y) = 2πif(c)
--/
-theorem integral_boundary_rect_sub_inv_smul_of_differentiable_on_off_countable {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z w a : ℂ) (s : Set ℂ) (hs : s.Countable)
+lemma CircleIntegral_eq_integral_boundary_rect {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z : ℂ)(R : ℝ) (hR : 0 < R) (Hd : DifferentiableOn ℂ f (closedBall z R)) :
+    (∮ ζ in C(z, R), f ζ) = (integral_boundary_rect f (z - (R / (Real.sqrt 2)) *  (1 + I)) (z + (R / (Real.sqrt 2)) * (1 + I))) := by sorry
+
+
+/--**Cauchhy's Integral Formula** for a square(?). If `f : ℂ → E` is complex differentiable on a closed square(?) with diagonal points `z` and `w`,
+then for any point `a` in the interior, the integral of `(c - a)⁻¹ • f c` along the boundary evaluates to `2πI • f(a)`-/
+theorem DifferentiableOn.integral_boundary_rect_sub_inv_mul {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z w a : ℂ)
     (ha: a ∈ (Ioo (min z.re w.re) (max z.re w.re) ×ℂ Ioo (min z.im w.im) (max z.im w.im)))
-    (Hc : ContinuousOn f (Icc z.re w.re ×ℂ Icc z.im w.im))
-    (Hd : ∀ x ∈ Ioo (min z.re w.re) (max z.re w.re) ×ℂ Ioo (min z.im w.im) (max z.im w.im) \ s,
-      DifferentiableAt ℂ f x) :
-      (∫ x : ℝ in z.re..w.re, ((x + z.im * I - a)⁻¹ • f (x + z.im * I)) -
-      ∫ x : ℝ in z.re..w.re, ((x + w.im * I - a)⁻¹ • f (x + w.im * I))) +
-      I • ∫ y : ℝ in z.im..w.im, ((w.re + y * I - a)⁻¹ • f (w.re + y * I)) -
-      I • ∫ y : ℝ in z.im..w.im, ((z.re + y * I - a)⁻¹ • f (z.re + y * I)) = (2 * π * I) • f a := by sorry
+    (Hd: DifferentiableOn ℂ f ((Icc (min z.re w.re) (max z.re w.re) ×ℂ Icc (min z.im w.im) (max z.im w.im)))) :
+    integral_boundary_rect (fun c ↦ ((c - a)⁻¹ • f c)) z w = (2 * π * I) • f a := by sorry
 
 variable (F : RatFunc ℂ)
 
@@ -160,7 +153,7 @@ variable (F : RatFunc ℂ)
 #check F.denom
 
 /-- Definitions for some Props about Rational functions, with respect to poles-/
-def pole_at (z : ℂ) (F : RatFunc ℂ) : Prop := F.denom.eval z = 0
+def pole_at (z : ℂ) (F : RatFunc ℂ) : Prop := F.denom.eval z = 0 ∧ F.num.eval z ≠ 0
 -- TODO: A version without the eval
 
 def poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := ∃ z ∈ E, pole_at z F
@@ -171,7 +164,10 @@ def only_poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := poles_in E F ∧ no_
 
 -- If z ≠ ∞, pole_at' z F = pole_at (↑z) F
 -- If z = ∞, pole_at' z F = deg F.num > deg F.denom
-def pole_at' (z: (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := sorry
+def pole_at' (z: (OnePoint ℂ)) (F : RatFunc ℂ) : Prop :=
+    match z with
+    | some z => pole_at z F
+    | none => degree F.num > degree F.denom
 
 def pole_in' (E : Set (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := ∃ z ∈ E, pole_at' z F
 
