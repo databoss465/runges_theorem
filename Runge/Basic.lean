@@ -6,7 +6,7 @@ import Mathlib.Order.Interval.Set.Basic
 import Mathlib.Topology.Basic
 import Mathlib
 
-open Set TopologicalSpace RatFunc
+open Set TopologicalSpace RatFunc ContinuousMap Metric
 
 #check Complex
 variable {U V : Set ℂ}
@@ -119,6 +119,16 @@ lemma open_subset_eq_of_boundary_disjoint_and_intersects_components {U V : Set �
 
 #check Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
 
+-- TODO: Fix this statement
+lemma integral_boundary_rect_eq_circleIntegral {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z w : ℂ) (s : Set ℂ) (hs : s.Countable)
+    (Hc : ContinuousOn f (closedBall ((z + w) / 2) (‖z-w‖ / √2) \ {((z + w) / 2)}))
+    (Hd : ∀ x ∈ (ball ((z + w) / 2) (‖z-w‖ / √2)) \ s, DifferentiableAt ℂ f x) :
+      (∫ x : ℝ in z.re..w.re, ((x + z.im * I)⁻¹ • f (x + z.im * I)) -
+      ∫ x : ℝ in z.re..w.re, ((x + w.im * I)⁻¹ • f (x + w.im * I))) +
+      I • ∫ y : ℝ in z.im..w.im, ((w.re + y * I)⁻¹ • f (w.re + y * I)) -
+      I • ∫ y : ℝ in z.im..w.im, ((z.re + y * I)⁻¹ • f (z.re + y * I)) = ∮ z in C((z + w) / 2, ‖z-w‖ / √2), f z := by sorry
+
 /-
 TODO:
 1. CIF_Rect : f is diff on all of Rect, value at center
@@ -126,6 +136,7 @@ TODO:
 3. CIF_Rect : f is not diff on S, value at points not in S
 4. CIF_Rect : Evaluates to zero if ppoints outside rect
 Tentatively we need these. Confirm what all we actually need after proof sketch.
+Prove all of these by the above lemma!
 -/
 
 /-- **Cauchy integral formula (Rectangle)** : if `f : ℂ → E` is continuous on a closed rectangle with its edges parallel to
@@ -178,68 +189,6 @@ instance coe : Coe (Set ℂ) (Set (OnePoint ℂ)) := ⟨coe_set⟩
 
 def rev_coe_set : Set (OnePoint ℂ) → Set ℂ := fun E ↦ {z | ↑z ∈ E}
 instance rev_coe : Coe (Set (OnePoint ℂ)) (Set ℂ) := ⟨rev_coe_set⟩
-
-
-
--- Move this to Runge.lean later
-/-- **Runge's Theorem**
-Suppose `Ω` is an open set in ℂ, `K` is a compact subset and `E` is set which intersects every connected component of
-`ℂ_infty \ K`. If `f` is a function which is complex differentiable on `Ω`, then for every `ε > 0` there exists a
-rational function `R` such that `∀ x ∈ Ω, |f(x) - R(x)| < ε`.
--/
-theorem runges_theorem {Ω K : Set ℂ} {E : Set (OnePoint ℂ)} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
-    (hE : ∀ z ∈  (↑K)ᶜ, connectedComponentIn (↑K)ᶜ z ∩ E ≠ ∅) (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∀ ε > 0,
-    ∃ R : RatFunc ℂ, (only_poles_in' E R) ∧ (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by
-
-    intro ε hε
-    have hε' : ε / 2 > 0 := by
-        apply div_pos
-        · exact hε
-        · exact zero_lt_two
-
-    -- TODO: Define Grid_Contour
-    /-obtain ⟨rγ, hγ⟩ := separation_lemma hK kΩ hf
-    h_total:= approximation_lemma γ K f
-    specialize h_total ε/2 hε'
-    Then h_total becomes ∃ R : RatFunc ℂ, (only_poles_in' (bdry γ)) ∧ (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε/2
-    obtain ⟨R, ⟨_, hR₁⟩ := hR
-    -/
-
-    obtain R : RatFunc ℂ := by sorry
-    have hR₁ : ∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε / 2 := by sorry
-
-    -- TODO: Define B E K
-    /-Define B E K := {f : ℂ → ℂ | (ContinuousOn f K) ∧ ( ∀ ε > 0, ∃ R : RatFunc ℂ, (only_poles_in' E R) ∧ (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε)
-    Show that B E K is a closed subalgebra ?
-    Show that ∀ a ∈ ℂ \ K, (z - a)⁻¹ ∈ B E K
-
-    Show that R ∈ B E K since it is a closed subalgebra
-    R ∈ B E K ↔ hR'
-    -/
-
-    have hR' : ∀ ε > 0, ∃ R' : RatFunc ℂ, (only_poles_in' E R') ∧
-            (∀ x ∈ K, ‖R.eval (RingHom.id ℂ) x - R'.eval (RingHom.id ℂ) x‖ < ε) := by sorry
-
-    specialize hR' (ε / 2) hε'
-    obtain ⟨R', hR'₁⟩ := hR'
-    use R'
-    constructor
-    · exact hR'₁.1
-    · have hR'' : ∀ x ∈ K, ‖f x - R'.eval (RingHom.id ℂ) x‖ < ε := by
-        intro x hx
-        calc
-        ‖f x - eval (RingHom.id ℂ) x R'‖
-            = ‖f x - R.eval (RingHom.id ℂ) x + R.eval (RingHom.id ℂ) x - R'.eval (RingHom.id ℂ) x‖ := by
-            rw [←sub_add_sub_cancel (f x) (R.eval (RingHom.id ℂ) x) (R'.eval (RingHom.id ℂ) x), ←add_sub_assoc]
-        _  ≤ ‖f x - R.eval (RingHom.id ℂ) x‖ + ‖R.eval (RingHom.id ℂ) x - R'.eval (RingHom.id ℂ) x‖ := by
-            rw [add_sub_assoc]
-            apply norm_add_le
-        _ < ε / 2 + ε / 2 := by
-            apply add_lt_add
-            · exact hR₁ x hx
-            · exact hR'₁.2 x hx
-        _ = ε := by apply add_halves
-      exact hR''
 
 /-
 theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
