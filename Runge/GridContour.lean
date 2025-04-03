@@ -2,6 +2,8 @@ import Mathlib
 
 open Complex Set Finset SimpleGraph
 
+set_option linter.unusedVariables false
+
 -- A square in the complex plane
 structure complex_square where
   btm_left : ℂ    -- Bottom left corner
@@ -74,15 +76,28 @@ structure Grid where
 --TODO: Define Grid Contour as an Inductive Type (maybe inductive type is better?)
 --TODO: Recursive(?) Vertex Updating algorithm
 
--- ** NEW APPROACH**
-#check ℂ × ℂ
 
-def A := range 3
-def B := range 4
-#eval Finset.product A B
+
+
+
+
+
+-- **NEW APPROACH**
+
+noncomputable def open_square (s : ℂ) (δ : ℝ) : Set ℂ := Ioo (s.re) (s.re + δ) ×ℂ Ioo (s.im) (s.im + δ)
+
+noncomputable def closed_square (s : ℂ) (δ : ℝ) : Set ℂ := Icc (s.re) (s.re + δ) ×ℂ Icc (s.im) (s.im + δ)
+
+/--A typeclass for compact sets where we can decide if a given square intersects it or not-/
+class Gridable (K : Set ℂ) where
+  hK : IsCompact K
+  hDec : ∀ v δ, Decidable (open_square v δ ∩ K).Nonempty
+
+noncomputable instance (K : Set ℂ) [Gridable K] : DecidablePred fun v ↦ (open_square v δ ∩ K).Nonempty :=
+  fun v ↦ Gridable.hDec v δ
 
 /-- This function is used to generate the slightly larger than minimal box that contains a compact set K-/
-noncomputable def box {K : Set ℂ} (hK : IsCompact K) {ε : ℝ} (hε : 0 < ε) : ℂ × ℂ :=
+noncomputable def box (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) : ℂ × ℂ :=
   let max_re : ℝ := sSup (re '' K)
   let min_re : ℝ := sInf (re '' K)
   let max_im : ℝ := sSup (im '' K)
@@ -97,32 +112,40 @@ noncomputable def mesh (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Finset ℂ :=
   let NM := Finset.product (range N) (range M)
   NM.image (fun (i, j) => (z.re + i * δ) + I * (z.im + j * δ))
 
-noncomputable def open_square (s : ℂ) (δ : ℝ) : Set ℂ := Ioo (s.re) (s.re + δ) ×ℂ Ioo (s.im) (s.im + δ)
+noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z : ℂ) (w : ℂ) : Prop := sorry
+/--If ‖z-w‖ ≠ δ return none
+   If w.re-z.re > 0 : return ((open_square z δ) ∩ K).Nonempty ∧ ((open_square z δ) ∩ K).Nonempty  -/
 
-noncomputable def closed_square (s : ℂ) (δ : ℝ) : Set ℂ := Icc (s.re) (s.re + δ) ×ℂ Icc (s.im) (s.im + δ)
+lemma one_common_square_symm {K : Set ℂ} [Gridable K] (z w : ℂ) : one_common_square K z w ↔ one_common_square K w z := by sorry
 
-noncomputable def one_common_square {K : Set ℂ} (hK : IsCompact K) (z : ℂ) (w : ℂ) : Prop := sorry
+noncomputable def contour_graph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (V : Finset ℂ) : SimpleGraph ℂ :=
+{ Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K z w),
+  symm := by
+    intros z w h
+    constructor
+    · rw [← neg_sub, norm_neg]
+      exact h.1
 
-noncomputable def contour_graph {K : Set ℂ} (hK: IsCompact K) {δ : ℝ} (hδ : 0 < δ) (V : Finset ℂ) : SimpleGraph ℂ :=
-{ Adj := fun z w ↦ (‖z-w‖ = δ) ∧  (one_common_square hK z w),
-  symm := by sorry
-  loopless := by sorry}
+    · rw [one_common_square_symm]
+      exact h.2
 
+  loopless := by
+    intros z h
+    rw [sub_self] at h
+    rw [norm_zero] at h
+    have h' : 0 ≠ δ := by linarith
+    exact h' h.1
+   }
 
-variable {K : Set ℂ} (hK : IsCompact K) {ε : ℝ} (hε : 0 < ε) (δ : ℝ) (hδ : 0 < δ)
-#check mesh (box hK hε) hδ
-
-noncomputable def Grid_Contour {K : Set ℂ} (hK : IsCompact K) {δ : ℝ } (hδ : 0 < δ) : SimpleGraph ℂ :=
+/--**Grid Contour** Is a function that takes a compact set `K` and gives me all the edges that bound it-/
+noncomputable def Grid_Contour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 < δ) : SimpleGraph ℂ :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
-  let box := box hK hε
+  let box := box K hε
   let mesh := mesh box hδ
-  /-
-  failed to synthesize
-    DecidablePred fun v ↦ (open_square v δ ∩ K).Nonempty
+  let vertices := { v ∈ mesh | ((open_square v δ) ∩ K).Nonempty }
+  contour_graph K hδ vertices
 
-  Additional diagnostic information may be available using the `set_option diagnostics true` command.
-  -/
-  -- let vertices := { v ∈ mesh | ((open_square v δ) ∩ K).Nonempty }
-  let vertices := sorry
-  contour_graph hK hδ vertices
+-- TODO: Every connected component of Grid_Contour is a cycle
+
+-- TODO: fun SimpleGraph ℂ ↦ E [NormedAddCommGroup E] [NormedSpace ℂ E] [CompleteSpace E] (Integration along the edges)
