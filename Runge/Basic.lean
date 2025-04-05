@@ -128,15 +128,18 @@ lemma integral_boundary_rect_eq_circleIntegral {E : Type u} [NormedAddCommGroup 
       (∫ x : ℝ in z.re..w.re, ((x + z.im * I)⁻¹ • f (x + z.im * I)) -
       ∫ x : ℝ in z.re..w.re, ((x + w.im * I)⁻¹ • f (x + w.im * I))) +
       I • ∫ y : ℝ in z.im..w.im, ((w.re + y * I)⁻¹ • f (w.re + y * I)) -
-      I • ∫ y : ℝ in z.im..w.im, ((z.re + y * I)⁻¹ • f (z.re + y * I)) = ∮ z in C((z + w) / 2, ‖z-w‖ / √2), f z := by sorry
+      I • ∫ y : ℝ in z.im..w.im, ((z.re + y * I)⁻¹ • f (z.re + y * I)) = ∮ ζ in C((z + w) / 2, ‖z-w‖ / √2), f ζ := by sorry
 
-variable {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z : ℂ)(R : ℝ) (hR : 0 < R)
+variable {E : Type u} [NormedAddCommGroup E][NormedSpace ℂ E] [CompleteSpace E]
+    (f : ℂ → E) (z : ℂ)(R : ℝ) (hR : 0 < R)
 #check ∮ ζ in C(z, R), f ζ
 
 lemma CircleIntegral_eq_integral_boundary_rect {E : Type u} [NormedAddCommGroup E]
     [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z : ℂ)(R : ℝ) (hR : 0 < R) (Hd : DifferentiableOn ℂ f (closedBall z R)) :
-    (∮ ζ in C(z, R), f ζ) = (integral_boundary_rect f (z - (R / (Real.sqrt 2)) *  (1 + I)) (z + (R / (Real.sqrt 2)) * (1 + I))) := by sorry
+    (∮ ζ in C(z, R), f ζ) = (integral_boundary_rect f (z - (R / 2) *  (1 + I)) (z + (R / 2) * (1 + I))) := by
+    simp [integral_boundary_rect]
+    -- rw [integral_boundary_rect_eq_circleIntegral f]
+    sorry
 
 
 /--**Cauchhy's Integral Formula** for a square(?). If `f : ℂ → E` is complex differentiable on a closed square(?) with diagonal points `z` and `w`,
@@ -154,7 +157,7 @@ variable (F : RatFunc ℂ)
 
 /-- Definitions for some Props about Rational functions, with respect to poles-/
 def pole_at (z : ℂ) (F : RatFunc ℂ) : Prop := F.denom.eval z = 0 ∧ F.num.eval z ≠ 0
--- TODO: A version without the eval
+-- TODO: A version without the eval?
 
 def poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := ∃ z ∈ E, pole_at z F
 
@@ -162,8 +165,6 @@ def no_poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := ¬ poles_in E F
 
 def only_poles_in (E : Set ℂ) (F : RatFunc ℂ) : Prop := poles_in E F ∧ no_poles_in (Eᶜ) F
 
--- If z ≠ ∞, pole_at' z F = pole_at (↑z) F
--- If z = ∞, pole_at' z F = deg F.num > deg F.denom
 def pole_at' (z: (OnePoint ℂ)) (F : RatFunc ℂ) : Prop :=
     match z with
     | some z => pole_at z F

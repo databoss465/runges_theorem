@@ -19,7 +19,6 @@ theorem runges_theorem {Ω K : Set ℂ} {E : Set (OnePoint ℂ)} {f : ℂ → �
         · exact hε
         · exact zero_lt_two
 
-    -- TODO: Define Grid_Contour
     /-obtain ⟨rγ, hγ⟩ := separation_lemma hK kΩ hf
     h_total:= approximation_lemma γ K f
     specialize h_total ε/2 hε'
@@ -38,6 +37,8 @@ theorem runges_theorem {Ω K : Set ℂ} {E : Set (OnePoint ℂ)} {f : ℂ → �
     Show that R ∈ B E K since it is a closed subalgebra
     R ∈ B E K ↔ hR'
     Show that R ∈ B E K → f ∈ B E K
+
+    Do I need to??
     -/
 
     have hR' : ∀ ε > 0, ∃ R' : RatFunc ℂ, (only_poles_in' E R') ∧

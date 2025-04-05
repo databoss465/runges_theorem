@@ -93,7 +93,7 @@ class Gridable (K : Set ℂ) where
   hK : IsCompact K
   hDec : ∀ v δ, Decidable (open_square v δ ∩ K).Nonempty
 
-noncomputable instance (K : Set ℂ) [Gridable K] : DecidablePred fun v ↦ (open_square v δ ∩ K).Nonempty :=
+instance (K : Set ℂ) [Gridable K] : DecidablePred fun v ↦ (open_square v δ ∩ K).Nonempty :=
   fun v ↦ Gridable.hDec v δ
 
 /-- This function is used to generate the slightly larger than minimal box that contains a compact set K-/
@@ -112,14 +112,102 @@ noncomputable def mesh (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Finset ℂ :=
   let NM := Finset.product (range N) (range M)
   NM.image (fun (i, j) => (z.re + i * δ) + I * (z.im + j * δ))
 
-noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z : ℂ) (w : ℂ) : Prop := sorry
-/--If ‖z-w‖ ≠ δ return none
-   If w.re-z.re > 0 : return ((open_square z δ) ∩ K).Nonempty ∧ ((open_square z δ) ∩ K).Nonempty  -/
+/--If ‖w-z‖ ≠ δ return none
+   If (w -z).re > 0 : return ((open_square z δ ∩ K).Nonempty ∧ ¬(open_square (z- δ * I) δ ∩ K).Nonempty) ∨ (¬(open_square z δ ∩ K).Nonempty ∧ (open_square (z- δ * I) δ ∩ K).Nonempty)
+   If (w -z).re < 0 : return ((open_square w δ ∩ K).Nonempty ∧ ¬(open_square (w- δ * I) δ ∩ K).Nonempty) ∨ (¬(open_square w δ ∩ K).Nonempty ∧ (open_square (w- δ * I) δ ∩ K).Nonempty)
+   If (w -z).im > 0 : return ((open_square z δ ∩ K).Nonempty ∧ ¬(open_square (z - δ) δ ∩ K).Nonempty) ∨ (¬(open_square z δ ∩ K).Nonempty ∧ (open_square (z - δ) δ ∩ K).Nonempty)
+   If (w -z).im < 0 : return ((open_square w δ ∩ K).Nonempty ∧ ¬(open_square (w - δ) δ ∩ K).Nonempty) ∨ (¬(open_square w δ ∩ K).Nonempty ∧ (open_square (w - δ) δ ∩ K).Nonempty)
+-/
+noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z w : ℂ) (δ : ℝ) : Prop :=
+  if ‖w-z‖ = δ then
+    if (w - z).re > 0 then
+      ((open_square z δ ∩ K).Nonempty ∧ ¬(open_square (z - δ * I) δ ∩ K).Nonempty) ∨
+      (¬(open_square z δ ∩ K).Nonempty ∧ (open_square (z - δ * I) δ ∩ K).Nonempty)
+    else if (w - z).re < 0 then
+      ((open_square w δ ∩ K).Nonempty ∧ ¬(open_square (w - δ * I) δ ∩ K).Nonempty) ∨
+      (¬(open_square w δ ∩ K).Nonempty ∧ (open_square (w - δ * I) δ ∩ K).Nonempty)
+    else if (w - z).im > 0 then
+      ((open_square z δ ∩ K).Nonempty ∧ ¬(open_square (z - δ) δ ∩ K).Nonempty) ∨
+      (¬(open_square z δ ∩ K).Nonempty ∧ (open_square (z - δ) δ ∩ K).Nonempty)
+    else if (w - z).im < 0 then
+      ((open_square w δ ∩ K).Nonempty ∧ ¬(open_square (w - δ) δ ∩ K).Nonempty) ∨
+      (¬(open_square w δ ∩ K).Nonempty ∧ (open_square (w - δ) δ ∩ K).Nonempty)
+    else false
+  else false
 
-lemma one_common_square_symm {K : Set ℂ} [Gridable K] (z w : ℂ) : one_common_square K z w ↔ one_common_square K w z := by sorry
+lemma one_common_square_symm_fwd {K : Set ℂ} [Gridable K] : one_common_square K z w δ → one_common_square K w z δ := by
+  unfold one_common_square
+  intro h
+  by_cases h₁ : ‖w - z‖ = δ
+  -- ‖w-z‖ = δ
+  · simp [h₁] at h
+    simp [h₁]
+    by_cases h₂ : z.re < w.re
+    -- z.re < w.re
+    · simp [h₂] at h
+      simp [h₂]
+      constructor
+      · rw [← neg_sub, norm_neg]
+        exact h₁
+      · have h₃ : ¬ (w.re < z.re) := by linarith
+        simp [h₃]
+        exact h
+
+    -- ¬z.re < w.re
+    · have h₃ : w.re < z.re ∨ w.re = z.re := by
+        apply LE.le.lt_or_eq
+        apply le_of_not_gt
+        linarith
+      cases h₃ with
+      | inl h₃ =>
+        simp [h₃, h₂] at h
+        simp [h₁, h₂, h₃]
+        constructor
+        · rw [← neg_sub, norm_neg]
+          exact h₁
+        · exact h
+      | inr h₃ =>
+        have h' : ¬w.re < z.re := by linarith
+        simp [h₁, h₂, h₃] at h
+        simp [h₁, h₂, h₃]
+        constructor
+        · rw [← neg_sub, norm_neg]
+          exact h₁
+        · by_cases h₄ : z.im < w.im
+          -- z.im < w.im
+          · simp [h₄] at h
+            have h₅ : ¬w.im < z.im := by linarith
+            simp [h₄, h₅]
+            exact h
+
+          -- ¬z.im < w.im
+          · have h₄ : w.im < z.im ∨ w.im = z.im := by
+              apply LE.le.lt_or_eq
+              apply le_of_not_gt
+              linarith
+            have h' : ¬z.im < w.im := by linarith
+            cases h₄ with
+            | inl h₄ =>
+              simp [h₄, h'] at h
+              simp [h₄, h']
+              exact h
+
+            | inr h₄ =>
+              simp [h₄, h']  at h
+
+  -- ‖w-z‖ ≠ δ
+  ·  simp [h₁] at h
+
+
+theorem one_common_square_symm {K : Set ℂ} [Gridable K] : one_common_square K z w δ ↔ one_common_square K w z δ := by
+  constructor
+  · exact one_common_square_symm_fwd
+
+  · intro h
+    exact one_common_square_symm_fwd h
 
 noncomputable def contour_graph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (V : Finset ℂ) : SimpleGraph ℂ :=
-{ Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K z w),
+{ Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K z w δ),
   symm := by
     intros z w h
     constructor
@@ -147,5 +235,10 @@ noncomputable def Grid_Contour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 <
   contour_graph K hδ vertices
 
 -- TODO: Every connected component of Grid_Contour is a cycle
+-- We need this because later we will show that any
 
 -- TODO: fun SimpleGraph ℂ ↦ E [NormedAddCommGroup E] [NormedSpace ℂ E] [CompleteSpace E] (Integration along the edges)
+
+-- TODO: Integral of union of squares?
+
+-- TODO: This function is same as summing over integral of all the squares!
