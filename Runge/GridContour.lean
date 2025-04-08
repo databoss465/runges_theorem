@@ -360,19 +360,30 @@ noncomputable def edge_to_interval (l : List (ℂ × ℂ)) : Set ℂ :=
     else ∅
 
 -- This function is used to convert the edges of the contour graph into intervals
-noncomputable def as_set (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
+noncomputable def grid_contour_as_set (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
     let ε := 2 * δ
     have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
     let V := (mesh (box K hε) hδ).filter (fun v ↦ ((open_square v δ) ∩ K).Nonempty)
     let edges := (directedEdgeSet_oriented K hδ V).toList
     edge_to_interval edges
 
-
-/-
-theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
-    (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∃ γ : Grid_Contour, (as_set γ ⊆ Ω \ K) ∧ (∀ z ∈ K,
-    integral γ ((z - a)⁻¹ • f z) = 2 * π * I * f a) := by sorry
+--Move this to a new file soon
+/-- **Separation Lemma**: Given a compact set `K` and a function `f : ℂ → ℂ` that is complex differentiable on
+an open set `Ω`, containing `K`, there exists a `δ > 0` such that the integral of `(z - a)⁻¹ • f(z)` over the
+grid contour of `K` is equal to `2 * π * I * f(a)`, where `a` is a point in `K` and the grid contour is
+contained in `Ω \ K`.
 -/
+theorem seperation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hΩK : K ⊆ Ω) [Gridable K]
+  (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
+  ∃ (δ : ℝ), (∀ a ∈ K, grid_contour_integral (fun z ↦ (z - a)⁻¹ • f z) K hδ = 2 * π * I * f a) ∧
+  (grid_contour_as_set K hδ ⊆ Ω \ K) := by
+  let d : ℝ := sorry
+  have hδ : d > 0 := by sorry
+  use d
+  constructor
+  · intro a ha
+    sorry
+  · sorry
 
 -- Two approaches to prove separation theorem
 -- TODO: Every connected component of grid_contour is a cycle => need this to show that grid_contour is a "Path"
