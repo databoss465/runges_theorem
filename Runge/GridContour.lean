@@ -113,6 +113,7 @@ noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z w : ℂ) (δ :
     else false
   else false
 
+
 lemma one_common_square_symm_fwd {K : Set ℂ} [Gridable K] : one_common_square K z w δ → one_common_square K w z δ := by
   unfold one_common_square
   intro h
@@ -183,7 +184,10 @@ theorem one_common_square_symm {K : Set ℂ} [Gridable K] : one_common_square K 
   · intro h
     exact one_common_square_symm_fwd h
 
-
+/-- **Contour Graph** is a function that represents the contour, of a compact set `K` approximated by axis-aligned
+line segemnts using a grid of resolution `δ`, as a simple graph with adjacency given by the conjuction of `‖z-w‖=δ` and
+the proposition that only one square with edge `z w` intersects K
+-/
 noncomputable def contour_graph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (V : Finset ℂ) : SimpleGraph ℂ :=
 { Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K z w δ),
   symm := by
@@ -203,7 +207,7 @@ noncomputable def contour_graph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 <
     exact h' h.1
    }
 
---Fix this later. It's very ugly
+--Fix this later (if possible). It's very ugly
 noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
   DecidableRel fun z w ↦ one_common_square K z w δ := by
   intro z w
@@ -296,9 +300,9 @@ noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
   DecidablePred fun (p : ℂ × ℂ) ↦ (contour_graph K hδ V).Adj p.1 p.2 := inferInstance
 
 
-/--**Grid Contour** Is a function that takes a compact set `K` and covers it with a grid of squares of side `δ`,
-  then it returns the boundary of this grid as a `SimpleGraph` in the complex plane.
-  -/
+/--**Grid Contour** Is a function that approximates the contour of a compact set `K` using a grid of resolution `δ`.
+  This approximate grid contour is represented as a `SimpleGraph` with vertices in the complex plane.
+-/
 noncomputable def grid_contour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 < δ) :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
@@ -307,31 +311,24 @@ noncomputable def grid_contour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 <
   let vertices : Finset ℂ := { v ∈ mesh | ((open_square v δ) ∩ K).Nonempty }
   contour_graph K hδ vertices
 
-
-/-
-class IsGridContour (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (G : SimpleGraph ℂ) where
-  vertices : Finset ℂ
-  adj_iff : ∀ z w : ℂ, G.Adj z w ↔ ‖z - w‖ = δ ∧ one_common_square K z w δ
-
-noncomputable instance {K : Set ℂ} [Gridable K] {δ ε: ℝ} (hδ : 0 < δ) (hε : 0 < ε) :
-  IsGridContour K hδ (grid_contour K hδ) where
-  vertices := { v ∈ (mesh (box K hε) hδ)  | ((open_square v δ) ∩ K).Nonempty }
-  adj_iff := by
-    intro z w
-    unfold grid_contour contour_graph
-    simp
--/
-
--- Two approaches to prove separation theorem
--- TODO: Every connected component of grid_contour is a cycle => need this to show that grid_contour is a "Path"
--- TODO: Every grid_contour is a union of squares => need this for CIF on Grid_Contour
-
-def orient (x : ℂ × ℂ) : (ℂ × ℂ) := sorry
+noncomputable def orient (K : Set ℂ) [Gridable K] {δ : ℝ}
+    (hδ : 0 < δ) (x : ℂ × ℂ) : (ℂ × ℂ) :=
+  let (z, w) := x
+  if z.re < w.re then
+    if (open_square z δ ∩ K).Nonempty then (z, w) else (w, z)
+  else if w.re <  z.re then
+    if (open_square w δ ∩ K).Nonempty then (w, z) else (z, w)
+  else if z.im < w.im then
+    if (open_square (z - δ) δ ∩ K).Nonempty then (z, w) else (w, z)
+  else if w.im < z.im then
+    if (open_square (w - δ) δ ∩ K).Nonempty then (w, z) else (z, w)
+  else x
 
 noncomputable def directedEdgeSet_oriented (K : Set ℂ) [Gridable K] {δ : ℝ}
     (hδ : 0 < δ) (V :Finset ℂ): Finset (ℂ × ℂ) :=
-    ((V.product V).filter (fun p ↦ (contour_graph K hδ V).Adj p.1 p.2)).image orient
+    ((V.product V).filter (fun p ↦ (contour_graph K hδ V).Adj p.1 p.2)).image (orient K hδ)
 
+/-- This function evaluates the integral of a function `f` on a horizontal or vertical edge `(z,w)`-/
 noncomputable def edge_integral {E : Type u} [NormedAddCommGroup E]
     [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (e : ℂ × ℂ) : E :=
     let (z,w) := e
@@ -341,6 +338,8 @@ noncomputable def edge_integral {E : Type u} [NormedAddCommGroup E]
       (∫ x : ℝ in z.re..w.re, f (x + z.im * I))
     else 0
 
+/-- Given a `Gridable K` and `δ > 0`, along with function `f : ℂ → E`, this function evaluates the integral of `f`
+over the `Grid_Contour` of `K`, with resolution `δ`. -/
 noncomputable def grid_contour_integral {E : Type u} [NormedAddCommGroup E]
     [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : E :=
     let ε := 2 * δ
@@ -349,15 +348,38 @@ noncomputable def grid_contour_integral {E : Type u} [NormedAddCommGroup E]
     let edges := directedEdgeSet_oriented K hδ V
     edges.sum (fun e ↦ edge_integral f e)
 
+-- Auxiliarry function to convert a list of edges to a set of intervals
+noncomputable def edge_to_interval (l : List (ℂ × ℂ)) : Set ℂ :=
+    match l with
+  | [] => ∅
+  | (z,w)::xs =>
+    if z.re = w.re then
+      {z.re} ×ℂ Icc (min z.im w.im) (max z.im w.im) ∪ edge_to_interval xs
+    else if z.im = w.im then
+      Icc (min z.re w.re) (max z.re w.re) ×ℂ {z.im} ∪ edge_to_interval xs
+    else ∅
+
+-- This function is used to convert the edges of the contour graph into intervals
+noncomputable def as_set (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
+    let ε := 2 * δ
+    have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
+    let V := (mesh (box K hε) hδ).filter (fun v ↦ ((open_square v δ) ∩ K).Nonempty)
+    let edges := (directedEdgeSet_oriented K hδ V).toList
+    edge_to_interval edges
+
+
 /-
 theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
     (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∃ γ : Grid_Contour, (as_set γ ⊆ Ω \ K) ∧ (∀ z ∈ K,
     integral γ ((z - a)⁻¹ • f z) = 2 * π * I * f a) := by sorry
 -/
 
+-- Two approaches to prove separation theorem
+-- TODO: Every connected component of grid_contour is a cycle => need this to show that grid_contour is a "Path"
+-- TODO: Every grid_contour is a union of squares => need this for CIF on Grid_Contour
+
 -- TODO : Need some way to say that Γ ⊆ Ω \ K
 /- TO do this, I need:
-1. Define a function `as_set` on `Γ` => Union of edges (as intervals)
-2. Show that no edge intersects `K`
-3. Show that every edge is contained in `Ω` => The argument is that `d(K, Γ)` is less than  `d(K, Ωᶜ)`
+1. Show that no edge intersects `K`
+2. Show that every edge is contained in `Ω` => The argument is that `d(K, Γ)` is less than  `d(K, Ωᶜ)`
 -/
