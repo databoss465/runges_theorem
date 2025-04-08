@@ -1,6 +1,6 @@
 import Mathlib
 
-open Complex Set Finset SimpleGraph
+open Complex Set Finset SimpleGraph Set
 
 set_option linter.unusedVariables false
 
@@ -61,23 +61,6 @@ theorem complex_sq_boundary_integral_eq_zero {E : Type u} [NormedAddCommGroup E]
     exact hC
     exact hD
 
--- TODO: CIF for the complex square (after proven for the rectangle)
-
--- Grid contour
-structure Grid where
-  squares : Finset ℂ    -- Bottom left corners of the squares
-  vertices : List ℂ     -- ccw Vertex list of total contour
-  side : ℝ              -- Side length of the squares
-  h₁ : side > 0
-  h₂ : squares.Nonempty
-
--- TODO: function to add squares and update vertex list
-
---TODO: Define Grid Contour as an Inductive Type (maybe inductive type is better?)
---TODO: Recursive(?) Vertex Updating algorithm
-
-
-
 
 
 
@@ -112,12 +95,7 @@ noncomputable def mesh (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Finset ℂ :=
   let NM := Finset.product (range N) (range M)
   NM.image (fun (i, j) => (z.re + i * δ) + I * (z.im + j * δ))
 
-/--If ‖w-z‖ ≠ δ return none
-   If (w -z).re > 0 : return ((open_square z δ ∩ K).Nonempty ∧ ¬(open_square (z- δ * I) δ ∩ K).Nonempty) ∨ (¬(open_square z δ ∩ K).Nonempty ∧ (open_square (z- δ * I) δ ∩ K).Nonempty)
-   If (w -z).re < 0 : return ((open_square w δ ∩ K).Nonempty ∧ ¬(open_square (w- δ * I) δ ∩ K).Nonempty) ∨ (¬(open_square w δ ∩ K).Nonempty ∧ (open_square (w- δ * I) δ ∩ K).Nonempty)
-   If (w -z).im > 0 : return ((open_square z δ ∩ K).Nonempty ∧ ¬(open_square (z - δ) δ ∩ K).Nonempty) ∨ (¬(open_square z δ ∩ K).Nonempty ∧ (open_square (z - δ) δ ∩ K).Nonempty)
-   If (w -z).im < 0 : return ((open_square w δ ∩ K).Nonempty ∧ ¬(open_square (w - δ) δ ∩ K).Nonempty) ∨ (¬(open_square w δ ∩ K).Nonempty ∧ (open_square (w - δ) δ ∩ K).Nonempty)
--/
+/-- This function tells me when the edge between z and w has only one square that intersects K-/
 noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z w : ℂ) (δ : ℝ) : Prop :=
   if ‖w-z‖ = δ then
     if (w - z).re > 0 then
@@ -198,13 +176,13 @@ lemma one_common_square_symm_fwd {K : Set ℂ} [Gridable K] : one_common_square 
   -- ‖w-z‖ ≠ δ
   ·  simp [h₁] at h
 
-
 theorem one_common_square_symm {K : Set ℂ} [Gridable K] : one_common_square K z w δ ↔ one_common_square K w z δ := by
   constructor
   · exact one_common_square_symm_fwd
 
   · intro h
     exact one_common_square_symm_fwd h
+
 
 noncomputable def contour_graph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (V : Finset ℂ) : SimpleGraph ℂ :=
 { Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K z w δ),
@@ -225,20 +203,161 @@ noncomputable def contour_graph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 <
     exact h' h.1
    }
 
-/--**Grid Contour** Is a function that takes a compact set `K` and gives me all the edges that bound it-/
-noncomputable def Grid_Contour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 < δ) : SimpleGraph ℂ :=
+--Fix this later. It's very ugly
+noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
+  DecidableRel fun z w ↦ one_common_square K z w δ := by
+  intro z w
+  simp [one_common_square]
+  by_cases h : ‖w- z‖ = δ
+
+  · by_cases h' : z.re < w.re
+    -- z.re < w.re
+    · simp [h, h']
+      by_cases h₁ : (open_square z δ ∩ K).Nonempty
+      -- z square touches K
+      · by_cases h₂ : (open_square (z - ↑δ * I) δ ∩ K).Nonempty
+        · apply isFalse; simp [h₁, h₂]
+        · apply isTrue; simp [h₁, h₂]
+      -- z square does not touch K
+      · by_cases h₂ : (open_square (z - ↑δ * I) δ ∩ K).Nonempty
+        · apply isTrue; simp [h₁, h₂]
+        · apply isFalse; simp [h₁, h₂]
+
+    -- z.re ≤ w.re
+    · by_cases h'' : w.re < z.re
+      -- w.re < z.re
+      · simp [h, h', h'']
+        by_cases h₁ : (open_square w δ ∩ K).Nonempty
+        -- w square touches K
+        · by_cases h₂ : (open_square (w - ↑δ * I) δ ∩ K).Nonempty
+          · apply isFalse; simp [h₁, h₂]
+          · apply isTrue; simp [h₁, h₂]
+        -- w square does not touch K
+        · by_cases h₂ : (open_square (w - ↑δ * I) δ ∩ K).Nonempty
+          · apply isTrue; simp [h₁, h₂]
+          · apply isFalse; simp [h₁, h₂]
+
+      -- ¬w.re = z.re
+      · by_cases h_im : z.im < w.im
+        -- z.im < w.im
+        · simp [h, h', h'', h_im]
+          by_cases h₁ : (open_square z δ ∩ K).Nonempty
+          -- z square touches K
+          · by_cases h₂ : (open_square (z - ↑δ) δ ∩ K).Nonempty
+            · apply isFalse; simp [h₁, h₂]
+            · apply isTrue; simp [h₁, h₂]
+          -- z square does not touch K
+          · by_cases h₂ : (open_square (z - ↑δ) δ ∩ K).Nonempty
+            · apply isTrue; simp [h₁, h₂]
+            · apply isFalse; simp [h₁, h₂]
+
+        -- ¬z.im < w.im
+        · by_cases h_im' : w.im < z.im
+          -- w.im < z.im
+          · simp [h, h', h'', h_im, h_im']
+            by_cases h₁ : (open_square w δ ∩ K).Nonempty
+            -- w square touches K
+            · by_cases h₂ : (open_square (w - ↑δ) δ ∩ K).Nonempty
+              · apply isFalse; simp [h₁, h₂]
+              · apply isTrue; simp [h₁, h₂]
+            -- w square does not touch K
+            · by_cases h₂ : (open_square (w - ↑δ) δ ∩ K).Nonempty
+              · apply isTrue; simp [h₁, h₂]
+              · apply isFalse; simp [h₁, h₂]
+
+          -- ¬w.im < z.im
+          · apply isFalse; simp [h, h', h'', h_im, h_im']
+
+  · apply isFalse
+    apply not_and_or.mpr
+    exact Or.inl h
+
+noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
+  DecidableRel fun (z w : ℂ) ↦ (contour_graph K hδ V).Adj z w := by
+  intro z w
+  unfold contour_graph
+  simp
+  by_cases h : ‖z - w‖ = δ
+  · by_cases h' : one_common_square K z w δ
+    · exact isTrue ⟨h, h'⟩
+    · apply isFalse
+      apply not_and_or.mpr
+      exact Or.inr h'
+
+  · by_cases h' : one_common_square K z w δ
+    · apply isFalse
+      apply not_and_or.mpr
+      exact Or.inl h
+    · apply isFalse
+      apply not_and_or.mpr
+      exact Or.inl h
+
+noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
+  DecidablePred fun (p : ℂ × ℂ) ↦ (contour_graph K hδ V).Adj p.1 p.2 := inferInstance
+
+
+/--**Grid Contour** Is a function that takes a compact set `K` and covers it with a grid of squares of side `δ`,
+  then it returns the boundary of this grid as a `SimpleGraph` in the complex plane.
+  -/
+noncomputable def grid_contour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 < δ) :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
   let box := box K hε
-  let mesh := mesh box hδ
-  let vertices := { v ∈ mesh | ((open_square v δ) ∩ K).Nonempty }
+  let mesh : Finset ℂ := mesh box hδ
+  let vertices : Finset ℂ := { v ∈ mesh | ((open_square v δ) ∩ K).Nonempty }
   contour_graph K hδ vertices
 
--- TODO: Every connected component of Grid_Contour is a cycle
--- We need this because later we will show that any
 
--- TODO: fun SimpleGraph ℂ ↦ E [NormedAddCommGroup E] [NormedSpace ℂ E] [CompleteSpace E] (Integration along the edges)
+/-
+class IsGridContour (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (G : SimpleGraph ℂ) where
+  vertices : Finset ℂ
+  adj_iff : ∀ z w : ℂ, G.Adj z w ↔ ‖z - w‖ = δ ∧ one_common_square K z w δ
 
--- TODO: Integral of union of squares?
+noncomputable instance {K : Set ℂ} [Gridable K] {δ ε: ℝ} (hδ : 0 < δ) (hε : 0 < ε) :
+  IsGridContour K hδ (grid_contour K hδ) where
+  vertices := { v ∈ (mesh (box K hε) hδ)  | ((open_square v δ) ∩ K).Nonempty }
+  adj_iff := by
+    intro z w
+    unfold grid_contour contour_graph
+    simp
+-/
 
--- TODO: This function is same as summing over integral of all the squares!
+-- Two approaches to prove separation theorem
+-- TODO: Every connected component of grid_contour is a cycle => need this to show that grid_contour is a "Path"
+-- TODO: Every grid_contour is a union of squares => need this for CIF on Grid_Contour
+
+def orient (x : ℂ × ℂ) : (ℂ × ℂ) := sorry
+
+noncomputable def directedEdgeSet_oriented (K : Set ℂ) [Gridable K] {δ : ℝ}
+    (hδ : 0 < δ) (V :Finset ℂ): Finset (ℂ × ℂ) :=
+    ((V.product V).filter (fun p ↦ (contour_graph K hδ V).Adj p.1 p.2)).image orient
+
+noncomputable def edge_integral {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (e : ℂ × ℂ) : E :=
+    let (z,w) := e
+    if z.re = w.re then
+      (∫ y : ℝ in z.im..w.im, f (z.re + y * I))     -- By defn, evaluates to - ∫ y : ℝ in w.im..z.im, f (w.re + y * I) if z.im > w.im
+    else if z.im = w.im then
+      (∫ x : ℝ in z.re..w.re, f (x + z.im * I))
+    else 0
+
+noncomputable def grid_contour_integral {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : E :=
+    let ε := 2 * δ
+    have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
+    let V := (mesh (box K hε) hδ).filter (fun v ↦ ((open_square v δ) ∩ K).Nonempty)
+    let edges := directedEdgeSet_oriented K hδ V
+    edges.sum (fun e ↦ edge_integral f e)
+
+/-
+theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
+    (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∃ γ : Grid_Contour, (as_set γ ⊆ Ω \ K) ∧ (∀ z ∈ K,
+    integral γ ((z - a)⁻¹ • f z) = 2 * π * I * f a) := by sorry
+-/
+
+-- TODO : Need some way to say that Γ ⊆ Ω \ K
+/- TO do this, I need:
+1. Define a function `as_set` on `Γ` => Union of edges (as intervals)
+2. Show that no edge intersects `K`
+3. Show that every edge is contained in `Ω` => The argument is that `d(K, Γ)` is less than  `d(K, Ωᶜ)`
+-/
