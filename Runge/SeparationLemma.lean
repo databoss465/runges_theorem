@@ -4,7 +4,6 @@ import Runge.GridContour
 open Complex Set Finset SimpleGraph
 
 
-
 /-- **Separation Lemma**: Given a compact set `K` and a function `f : ℂ → ℂ` that is complex differentiable on
 an open set `Ω`, containing `K`, there exists a `δ > 0` such that the integral of `(z - a)⁻¹ • f(z)` over the
 grid contour of `K` is equal to `2 * π * I * f(a)`, where `a` is a point in `K` and the grid contour is
@@ -25,10 +24,14 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
   -- Contour Set Statement
   · rw [diff_eq, subset_inter_iff]
     constructor
+
+    -- Γ ⊆ Ω
     · rw [←compl_compl Ω, subset_compl_iff_disjoint_right, disjoint_iff_inter_eq_empty]
       -- d(x, K) < d(K, Ωᶜ) => 0 < d(x, Ωᶜ)
       -- Triangle inequality => d(K, Ωᶜ) ≤ d(x, Ωᶜ) + d(x, K)
       sorry
+
+    -- Γ ⊆ Kᶜ
     · rw [subset_compl_iff_disjoint_right, disjoint_iff_inter_eq_empty]
       let ε := 2 * d
       have hε : 0 < ε := by apply mul_pos; linarith; exact hd
@@ -39,7 +42,10 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
       intro (z,w)
       rw [iUnion_inter, iUnion_eq_empty]
       have h' {z w : ℂ} (hzw : (z,w) ∈ edges) : edgeInterval (z,w) ∩ K = ∅ := by
-        sorry
+        unfold edges at hzw
+        rw [mem_directed_edge_set] at hzw
+        simp [ContourGraph] at hzw
+        apply (edge_interval_inter_empty K hd hzw.2)
       exact h'
 
 

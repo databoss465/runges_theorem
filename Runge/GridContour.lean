@@ -324,13 +324,100 @@ noncomputable def Orient (K : Set ℂ) [Gridable K] {δ : ℝ}
     if (closed_square (w - δ) δ ∩ K).Nonempty then (w, z) else (z, w)
   else x
 
+lemma orient_canonical (K: Set ℂ) [Gridable K] {δ : ℝ}
+    (hδ : 0 < δ) (p : ℂ × ℂ) (h_orient : Orient K hδ p = (z,w)) : p = (z,w) ∨ p = (w,z) := by
+    let (a,b) := p
+    unfold Orient at h_orient
+    by_cases h₁ : a.re < b.re
+    -- a.re < b.re
+    · by_cases h₂ : (closed_square a δ ∩ K).Nonempty
+      -- a square touches K
+      · simp [h₁, h₂] at h_orient
+        left
+        simp
+        exact h_orient
+
+      · simp [h₁, h₂] at h_orient
+        right
+        simp
+        exact ⟨h_orient.2, h_orient.1⟩
+
+    -- ¬a.re < b.re
+    · have h₁' : b.re < a.re ∨ b.re = a.re := by
+        apply LE.le.lt_or_eq
+        apply le_of_not_gt
+        linarith
+      cases h₁' with
+      | inl h₁' =>
+        by_cases h₂ : (closed_square b δ ∩ K).Nonempty
+        -- b square touches K
+        · simp [h₁, h₁', h₂] at h_orient
+          right
+          simp
+          exact ⟨h_orient.2, h_orient.1⟩
+        -- b square does not touch K
+        · simp [h₁, h₁', h₂] at h_orient
+          left
+          simp
+          exact h_orient
+
+      | inr h₁' =>
+        have h₁'' : ¬b.re < a.re := by linarith
+        by_cases h₃ : a.im < b.im
+        -- a.im < b.im
+        · by_cases h₄ : (closed_square (a - ↑δ) δ ∩ K).Nonempty
+          -- a square touches K
+          · simp [h₁, h₁'', h₃, h₄] at h_orient
+            left
+            simp
+            exact h_orient
+          · simp [h₁, h₁'', h₃, h₄] at h_orient
+            right
+            simp
+            exact ⟨h_orient.2, h_orient.1⟩
+
+        · have h₃' : b.im < a.im ∨ b.im = a.im := by
+            apply LE.le.lt_or_eq
+            apply le_of_not_gt
+            linarith
+          cases h₃' with
+          | inl h₃' =>
+            by_cases h₄ : (closed_square (b - ↑δ) δ ∩ K).Nonempty
+            · simp [h₁, h₁'', h₃, h₃', h₄] at h_orient
+              right
+              simp
+              exact ⟨h_orient.2, h_orient.1⟩
+            · simp [h₁, h₁'', h₃, h₃', h₄] at h_orient
+              left
+              simp
+              exact h_orient
+
+          | inr h₃' =>
+            have h₄ : ¬b.im < a.im := by linarith
+            simp [h₁, h₁'', h₃, h₄] at h_orient
+            left
+            simp
+            exact h_orient
+
 noncomputable def DirectedEdgeSetOriented (K : Set ℂ) [Gridable K] {δ : ℝ}
     (hδ : 0 < δ) (V :Finset ℂ): Finset (ℂ × ℂ) :=
     ((V.product V).filter (fun p ↦ (ContourGraph K hδ V).Adj p.1 p.2)).image (Orient K hδ)
 
 lemma mem_directed_edge_set (K : Set ℂ) [Gridable K] {δ : ℝ}
-    (hδ : 0 < δ) (V :Finset ℂ): (z,w) ∈ DirectedEdgeSetOriented K hδ V ↔ (ContourGraph K hδ V).Adj z w := by
-    sorry
+    (hδ : 0 < δ) (V :Finset ℂ): (z,w) ∈ DirectedEdgeSetOriented K hδ V → (ContourGraph K hδ V).Adj z w := by
+    intro h
+    unfold DirectedEdgeSetOriented at h
+    obtain ⟨p, hp_mem, hp_eq⟩ := Finset.mem_image.mp h --This works but obtain ⟨(a,b), hp_mem, hp_eq⟩ := Finset.mem_image.mp h doesn't
+    obtain ⟨hp_mem', hp_adj⟩ := Finset.mem_filter.mp hp_mem
+    have h₁ : p = (z,w) ∨ p = (w,z) := orient_canonical K hδ p hp_eq
+    cases h₁ with
+    | inl h₁ =>
+      rw [h₁] at hp_adj
+      exact hp_adj
+    | inr h₁ =>
+      simp [h₁] at hp_adj
+      apply (ContourGraph K hδ V).symm
+      exact hp_adj
 
 /-- This function evaluates the integral of a function `f` on a horizontal or vertical edge `(z,w)`-/
 noncomputable def EdgeIntegral {E : Type u} [NormedAddCommGroup E]
@@ -360,6 +447,50 @@ noncomputable def edgeInterval (e : ℂ × ℂ) : Set ℂ :=
     else if z.im = w.im then
       Icc (min z.re w.re) (max z.re w.re) ×ℂ {z.im}
     else ∅
+
+lemma edge_interval_inter_empty (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (h : one_common_square K z w δ):
+     edgeInterval (z,w) ∩ K = ∅ := by
+    by_contra h_contra
+    rw [←ne_eq, ←Set.nonempty_iff_ne_empty] at h_contra
+    unfold one_common_square at h
+    by_cases h₁ : z.re < w.re
+    · simp [h₁] at h
+      have h' : ¬z.re = w.re := by linarith
+      unfold edgeInterval at h_contra
+      by_cases h₂ : z.im = w.im
+      · simp [h', h₁, h₂] at h_contra
+        sorry
+
+      · simp [h', h₁, h₂] at h_contra
+
+    · have h₁' : w.re < z.re ∨ w.re = z.re := by
+        apply LE.le.lt_or_eq
+        apply le_of_not_gt
+        linarith
+      cases h₁' with
+      | inl h₁' =>
+        sorry
+
+      | inr h₁' =>
+        have h' : ¬w.re < z.re := by linarith
+        simp [h₁, h'] at h
+        by_cases h₃ : z.im < w.im
+        -- z.im < w.im
+        · simp [h₃] at h
+          sorry
+
+        · have h₃' : w.im < z.im ∨ w.im = z.im := by
+            apply LE.le.lt_or_eq
+            apply le_of_not_gt
+            linarith
+          cases h₃' with
+          | inl h₃' =>
+            simp [h₃', h₁, h₁', h₃] at h
+            sorry
+
+          | inr h₃' =>
+            have h'' : ¬w.im < z.im := by linarith
+            simp [h₁, h₁', h₃, h'' ] at h
 
 -- This function is used to convert the edges of the contour graph into intervals
 noncomputable def GridContourSet (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=

@@ -3,6 +3,7 @@
 import Mathlib
 import Runge.Basic
 import Runge.GridContour
+import Runge.SeparationLemma
 
 /-- **Runge's Theorem**
 Suppose `Ω` is an open set in ℂ, `K` is a compact subset and `E` is set which intersects every connected component of
