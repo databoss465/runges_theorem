@@ -1,8 +1,11 @@
 import Mathlib
+import Runge.Basic
 import Runge.GridContour
 
-open Complex Set Finset SimpleGraph Metric
+open Complex Set Finset SimpleGraph Metric RatFunc
 
+lemma DifferentiableOn.grid_contour_integral_sub_inv_smul {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hΩK : K ⊆ Ω) [Gridable K]
+  (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∀ a ∈ K, GridContourIntegral (fun z ↦ (z - a)⁻¹ • f z) K hδ = (2 * π * I) • f a := by sorry
 
 /-- **Separation Lemma**: Given a compact set `K` and a function `f : ℂ → ℂ` that is complex differentiable on
 an open set `Ω`, containing `K`, there exists a `δ > 0` such that the integral of `(z - a)⁻¹ • f(z)` over the
@@ -11,15 +14,21 @@ contained in `Ω \ K`.
 -/
 theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hΩ₁ : Ωᶜ.Nonempty) (hΩK : K ⊆ Ω) [Gridable K]
   (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
-  ∃ (δ : ℝ) (hδ : 0 < δ), (∀ a ∈ K, GridContourIntegral (fun z ↦ (z - a)⁻¹ • f z) K hδ = 2 * π * I * f a) ∧
+  ∃ (δ : ℝ) (hδ : 0 < δ), (∀ a ∈ K, GridContourIntegral (fun z ↦ (z - a)⁻¹ • f z) K hδ = (2 * π * I) • f a) ∧
   (GridContourSet K hδ ⊆ Ω \ K) := by
-  let d : ℝ := sorry
-  have hd : 0 < d := sorry
+  let d : ℝ := (hausdorffDist K Ωᶜ) / 2
+  have hd : 0 < d := by
+    apply half_pos
+    apply lt_iff_le_and_ne.mpr
+    constructor
+    · exact hausdorffDist_nonneg
+    · by_contra h_contra
+      sorry
+
   use d, hd
   constructor
   -- CIF Statement
-  · intro a ha
-    sorry
+  · exact DifferentiableOn.grid_contour_integral_sub_inv_smul hΩ hΩK hf
 
   -- Contour Set Statement
   · rw [diff_eq, subset_inter_iff]
@@ -62,3 +71,9 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
 -- TODO: Every GridContour is a union of squares => need this for CIF on GridContour
 
 -- TODO : Show that every edge is contained in `Ω` => The argument is that `d(K, Γ)` is less than  `d(K, Ωᶜ)`
+
+-- Needs work!
+theorem approximation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} {δ : ℝ} (hΩ : IsOpen Ω)
+  (hΩK : K ⊆ Ω) [Gridable K] (hδ : 0 < δ) (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
+  ∃ (R : RatFunc ℂ), (only_poles_in' (GridContourSet K hδ) R) ∧
+  (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by sorry
