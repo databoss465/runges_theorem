@@ -1,7 +1,7 @@
 import Mathlib
 import Runge.GridContour
 
-open Complex Set Finset SimpleGraph
+open Complex Set Finset SimpleGraph Metric
 
 
 /-- **Separation Lemma**: Given a compact set `K` and a function `f : ℂ → ℂ` that is complex differentiable on
@@ -9,7 +9,7 @@ an open set `Ω`, containing `K`, there exists a `δ > 0` such that the integral
 grid contour of `K` is equal to `2 * π * I * f(a)`, where `a` is a point in `K` and the grid contour is
 contained in `Ω \ K`.
 -/
-theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hΩK : K ⊆ Ω) [Gridable K]
+theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hΩ₁ : Ωᶜ.Nonempty) (hΩK : K ⊆ Ω) [Gridable K]
   (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
   ∃ (δ : ℝ) (hδ : 0 < δ), (∀ a ∈ K, GridContourIntegral (fun z ↦ (z - a)⁻¹ • f z) K hδ = 2 * π * I * f a) ∧
   (GridContourSet K hδ ⊆ Ω \ K) := by
@@ -26,10 +26,18 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
     constructor
 
     -- Γ ⊆ Ω
-    · rw [←compl_compl Ω, subset_compl_iff_disjoint_right, disjoint_iff_inter_eq_empty]
-      -- d(x, K) < d(K, Ωᶜ) => 0 < d(x, Ωᶜ)
-      -- Triangle inequality => d(K, Ωᶜ) ≤ d(x, Ωᶜ) + d(x, K)
-      sorry
+    · rw [Set.subset_def]
+      intro x hx
+      rw [←compl_compl Ω, Set.mem_compl_iff]
+      have hΩ' : IsClosed Ωᶜ := isClosed_compl_iff.mpr hΩ
+      --Here if Ω = ℂ, Ωᶜ = {∞} so it is still nonempty in OnePoint ℂ. But do I need to cast it?
+      -- have hΩ'' : Ωᶜ.Nonempty := by sorry
+      rw [IsClosed.not_mem_iff_infDist_pos hΩ' hΩ₁]
+      have hΩx : 0 < infDist x Ωᶜ := by
+        -- d(x, K) < d(K, Ωᶜ) => 0 < d(x, Ωᶜ)
+        -- Triangle inequality => d(K, Ωᶜ) ≤ d(x, Ωᶜ) + d(x, K)
+        sorry
+      exact hΩx
 
     -- Γ ⊆ Kᶜ
     · rw [subset_compl_iff_disjoint_right, disjoint_iff_inter_eq_empty]
@@ -43,12 +51,12 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
       rw [iUnion_inter, iUnion_eq_empty]
       have h' {z w : ℂ} (hzw : (z,w) ∈ edges) : edgeInterval (z,w) ∩ K = ∅ := by
         unfold edges at hzw
-        rw [mem_directed_edge_set] at hzw
+        apply mem_directed_edge_set at hzw
         simp [ContourGraph] at hzw
         apply (edge_interval_inter_empty K hd hzw.2)
       exact h'
 
-
+#check Metric.infDist
 -- Two approaches to prove separation theorem
 -- TODO: Every connected component of GridContour is a cycle => need this to show that GridContour is a "Path"
 -- TODO: Every GridContour is a union of squares => need this for CIF on GridContour

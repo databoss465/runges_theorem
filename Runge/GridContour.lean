@@ -448,18 +448,55 @@ noncomputable def edgeInterval (e : ℂ × ℂ) : Set ℂ :=
       Icc (min z.re w.re) (max z.re w.re) ×ℂ {z.im}
     else ∅
 
+#check Norm ℂ
+
+-- Edge Intervals don't touch K
 lemma edge_interval_inter_empty (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (h : one_common_square K z w δ):
      edgeInterval (z,w) ∩ K = ∅ := by
     by_contra h_contra
     rw [←ne_eq, ←Set.nonempty_iff_ne_empty] at h_contra
     unfold one_common_square at h
     by_cases h₁ : z.re < w.re
+
+    -- z.re < w.re
     · simp [h₁] at h
+      let ⟨ha, hb⟩ := h
       have h' : ¬z.re = w.re := by linarith
       unfold edgeInterval at h_contra
       by_cases h₂ : z.im = w.im
       · simp [h', h₁, h₂] at h_contra
-        sorry
+        unfold closed_square at h
+        have hzw : w.re = z.re + δ := by
+          rw [norm_def (w - z), normSq_apply, sub_im, h₂, sub_self] at ha
+          simp at ha
+          rw [Real.sqrt_mul_self] at ha
+          linarith
+          simp [h₁]
+          exact LT.lt.le h₁
+        rw [min_eq_left_of_lt h₁, max_eq_right_of_lt h₁, ← h₂, hzw] at h_contra
+        have h_sub : (Icc (z.re) (z.re + δ) ×ℂ {z.im} ∩ K) ⊆ (closed_square z δ ∩ K) := by
+          apply Set.inter_subset_inter
+          · unfold closed_square
+            apply reProdIm_subset_iff.mpr
+            apply prod_mono_right
+            apply Set.singleton_subset_iff.mpr
+            simp
+            exact LT.lt.le hδ
+          · rfl
+        have h_sub' : (Icc (z.re) (z.re + δ) ×ℂ {z.im} ∩ K) ⊆ (closed_square (z - δ * I) δ ∩ K) := by
+          apply Set.inter_subset_inter
+          · unfold closed_square
+            simp
+            apply reProdIm_subset_iff.mpr
+            rw [← hzw]
+            apply prod_mono_right
+            apply Set.singleton_subset_iff.mpr
+            simp
+            exact LT.lt.le hδ
+          · rfl
+        have h_final' := Set.Nonempty.mono h_sub h_contra
+        have h_final := Set.Nonempty.mono h_sub' h_contra
+        simp [h_final, h_final'] at hb
 
       · simp [h', h₁, h₂] at h_contra
 
@@ -468,29 +505,150 @@ lemma edge_interval_inter_empty (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 <
         apply le_of_not_gt
         linarith
       cases h₁' with
-      | inl h₁' =>
-        sorry
 
+      -- w.re < z.re
+      | inl h₁' =>
+        simp [h₁, h₁'] at h
+        let ⟨ha, hb⟩ := h
+        have h' : ¬z.re = w.re := by linarith
+        unfold edgeInterval at h_contra
+        by_cases h₂ : z.im = w.im
+        · simp [h', h₁, h₂] at h_contra
+          unfold closed_square at h
+          have hzw : z.re = w.re + δ := by
+            rw [norm_def (w - z), normSq_apply, sub_im, h₂, sub_self] at ha
+            simp at ha
+            rw [Real.sqrt_mul_self_eq_abs, abs_eq] at ha
+            cases ha
+            · linarith
+            · linarith
+            exact LT.lt.le hδ
+          rw [min_comm, min_eq_left_of_lt h₁', max_comm, max_eq_right_of_lt h₁', hzw] at h_contra
+          have h_sub : (Icc (w.re) (w.re + δ) ×ℂ {w.im} ∩ K) ⊆ (closed_square w δ ∩ K) := by
+            apply Set.inter_subset_inter
+            · unfold closed_square
+              apply reProdIm_subset_iff.mpr
+              apply prod_mono_right
+              apply Set.singleton_subset_iff.mpr
+              simp
+              exact LT.lt.le hδ
+            · rfl
+          have h_sub' : (Icc (w.re) (w.re + δ) ×ℂ {w.im} ∩ K) ⊆ (closed_square (w - δ * I) δ ∩ K) := by
+            apply Set.inter_subset_inter
+            · unfold closed_square
+              simp
+              apply reProdIm_subset_iff.mpr
+              rw [← hzw]
+              apply prod_mono_right
+              apply Set.singleton_subset_iff.mpr
+              simp
+              exact LT.lt.le hδ
+            · rfl
+          have h_final' := Set.Nonempty.mono h_sub h_contra
+          have h_final := Set.Nonempty.mono h_sub' h_contra
+          simp [h_final, h_final'] at hb
+
+        · simp [h', h₁, h₂] at h_contra
+
+      -- w.re = z.re
       | inr h₁' =>
         have h' : ¬w.re < z.re := by linarith
         simp [h₁, h'] at h
         by_cases h₃ : z.im < w.im
+
         -- z.im < w.im
         · simp [h₃] at h
-          sorry
+          let ⟨ha, hb⟩ := h
+          have h'' : ¬w.im = z.im := by linarith
+          unfold edgeInterval at h_contra
+          simp [h₁', h''] at h_contra
+          unfold closed_square at h
+          have hzw : w.im = z.im + δ := by
+            rw [norm_def (w - z), normSq_apply, sub_re, h₁'] at ha
+            simp at ha
+            rw [Real.sqrt_mul_self] at ha
+            linarith
+            simp [h₃]
+            exact LT.lt.le h₃
+          rw [min_eq_left_of_lt h₃, max_eq_right_of_lt h₃, ← h₁', hzw] at h_contra
+          have h_sub : ({w.re} ×ℂ Icc (z.im) (z.im + δ) ∩ K) ⊆ (closed_square z δ ∩ K) := by
+            apply Set.inter_subset_inter
+            · unfold closed_square
+              apply reProdIm_subset_iff.mpr
+              rw [h₁']
+              apply prod_mono_left
+              apply Set.singleton_subset_iff.mpr
+              simp
+              exact LT.lt.le hδ
+            · rfl
+          have h_sub' : ({w.re} ×ℂ Icc (z.im) (z.im + δ) ∩ K) ⊆ (closed_square (z - δ) δ ∩ K) := by
+            apply Set.inter_subset_inter
+            · unfold closed_square
+              simp
+              apply reProdIm_subset_iff.mpr
+              rw [h₁']
+              apply prod_mono_left
+              apply Set.singleton_subset_iff.mpr
+              simp
+              exact LT.lt.le hδ
+            · rfl
+          have h_final := Set.Nonempty.mono h_sub h_contra
+          have h_final' := Set.Nonempty.mono h_sub' h_contra
+          simp [h_final, h_final'] at hb
 
         · have h₃' : w.im < z.im ∨ w.im = z.im := by
             apply LE.le.lt_or_eq
             apply le_of_not_gt
             linarith
           cases h₃' with
+
+          -- w.im < z.im
           | inl h₃' =>
             simp [h₃', h₁, h₁', h₃] at h
-            sorry
+            let ⟨ha, hb⟩ := h
+            have h'' : ¬w.im = z.im := by linarith
+            unfold edgeInterval at h_contra
+            simp [h₁', h₃, h''] at h_contra
+            unfold closed_square at h
+            have hzw : z.im = w.im + δ := by
+              rw [norm_def (w - z), normSq_apply, sub_re, h₁'] at ha
+              simp at ha
+              rw [Real.sqrt_mul_self_eq_abs, abs_eq] at ha
+              cases ha
+              · linarith
+              · linarith
+              exact LT.lt.le hδ
+            rw [min_comm, min_eq_left_of_lt h₃', max_comm, max_eq_right_of_lt h₃', hzw] at h_contra
+            have h_sub : ({z.re} ×ℂ Icc (w.im) (w.im + δ) ∩ K) ⊆ (closed_square w δ ∩ K) := by
+              apply Set.inter_subset_inter
+              · unfold closed_square
+                apply reProdIm_subset_iff.mpr
+                rw [h₁']
+                apply prod_mono_left
+                apply Set.singleton_subset_iff.mpr
+                simp
+                exact LT.lt.le hδ
+              · rfl
+            have h_sub' : ({z.re} ×ℂ Icc (w.im) (w.im + δ) ∩ K) ⊆ (closed_square (w - δ) δ ∩ K) := by
+              apply Set.inter_subset_inter
+              · unfold closed_square
+                simp
+                apply reProdIm_subset_iff.mpr
+                rw [h₁']
+                apply prod_mono_left
+                apply Set.singleton_subset_iff.mpr
+                simp
+                exact LT.lt.le hδ
+              · rfl
+            have h_final := Set.Nonempty.mono h_sub h_contra
+            have h_final' := Set.Nonempty.mono h_sub' h_contra
+            simp [h_final, h_final'] at hb
 
+          -- w.im = z.im
           | inr h₃' =>
             have h'' : ¬w.im < z.im := by linarith
             simp [h₁, h₁', h₃, h'' ] at h
+
 
 -- This function is used to convert the edges of the contour graph into intervals
 noncomputable def GridContourSet (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
