@@ -74,6 +74,7 @@ noncomputable def closed_square (s : ℂ) (δ : ℝ) : Set ℂ := Icc (s.re) (s.
 /--A typeclass for compact sets where we can decide if a given square intersects it or not-/
 class Gridable (K : Set ℂ) where
   hK : IsCompact K
+  hNon : K.Nonempty
   hDec : ∀ v δ, Decidable (closed_square v δ ∩ K).Nonempty
 
 instance (K : Set ℂ) [Gridable K] : DecidablePred fun v ↦ (closed_square v δ ∩ K).Nonempty :=
