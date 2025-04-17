@@ -10,7 +10,7 @@ Suppose `Ω` is an open set in ℂ, `K` is a compact subset and `E` is set which
 `ℂ_infty \ K`. If `f` is a function which is complex differentiable on `Ω`, then for every `ε > 0` there exists a
 rational function `R` such that `∀ x ∈ Ω, |f(x) - R(x)| < ε`.
 -/
-theorem runges_theorem {Ω K : Set ℂ} {E : Set (OnePoint ℂ)} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
+theorem runges_theorem {Ω K : Set ℂ} [Gridable K] {E : Set (OnePoint ℂ)} {f : ℂ → ℂ} (hΩ : IsOpen Ω ∧ Ωᶜ.Nonempty)
     (hE : ∀ z ∈  (↑K)ᶜ, connectedComponentIn (↑K)ᶜ z ∩ E ≠ ∅) (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∀ ε > 0,
     ∃ R : RatFunc ℂ, (only_poles_in' E R) ∧ (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by
 

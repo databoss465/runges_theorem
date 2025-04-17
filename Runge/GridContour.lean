@@ -65,11 +65,20 @@ theorem complex_sq_boundary_integral_eq_zero {E : Type u} [NormedAddCommGroup E]
 
 
 
+
 -- **NEW APPROACH**
 
 noncomputable def open_square (s : ℂ) (δ : ℝ) : Set ℂ := Ioo (s.re) (s.re + δ) ×ℂ Ioo (s.im) (s.im + δ)
 
 noncomputable def closed_square (s : ℂ) (δ : ℝ) : Set ℂ := Icc (s.re) (s.re + δ) ×ℂ Icc (s.im) (s.im + δ)
+
+-- Integral of a function over a complex square given its bottom left corner `z` and side `δ`
+noncomputable def square_integral {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z : ℂ) {δ : ℝ} (hδ : 0 < δ) : E :=
+  let w := z + δ * (1 + I) -- Top-right corner
+  (((∫ (x : ℝ) in z.re..w.re, f (x + z.im * I)) - ∫ (x : ℝ) in
+  z.re..w.re, f (x + w.im * I)) + I • ∫ (y : ℝ) in z.im..w.im, f
+  (w.re + y * I)) - I • ∫ (y : ℝ) in z.im..w.im, f (z.re + y * I)
 
 /--A typeclass for compact sets where we can decide if a given square intersects it or not-/
 class Gridable (K : Set ℂ) where
@@ -80,7 +89,7 @@ class Gridable (K : Set ℂ) where
 instance (K : Set ℂ) [Gridable K] : DecidablePred fun v ↦ (closed_square v δ ∩ K).Nonempty :=
   fun v ↦ Gridable.hDec v δ
 
-/-- This function is used to generate the slightly larger than minimal Box that contains a compact set K-/
+-- This function is used to generate the slightly larger than minimal `Box` that contains a compact set `K`
 noncomputable def Box (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) : ℂ × ℂ :=
   let max_re : ℝ := sSup (re '' K)
   let min_re : ℝ := sInf (re '' K)
@@ -88,13 +97,452 @@ noncomputable def Box (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) : ℂ
   let min_im : ℝ := sInf (im '' K)
   ⟨(min_re - ε + I * (min_im - ε)), (max_re + ε + I * (max_im + ε))⟩
 
+#eval Nat.ceil (11-4)/3
+
 -- This function is used to generate the lattice points in the Box
 noncomputable def Mesh (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Finset ℂ :=
   let (z, w) := s
-  let N : ℕ := Nat.ceil ((w.re - z.re) / δ)
-  let M : ℕ := Nat.ceil ((w.im - z.im) / δ)
+  let N : ℕ := Nat.ceil ((w-z).re / δ)
+  let M : ℕ := Nat.ceil ((w-z).im / δ)
   let NM := Finset.product (range N) (range M)
   NM.image (fun (i, j) => (z.re + i * δ) + I * (z.im + j * δ))
+
+-- This function is used to get the mesh as a union of closed square in ℂ
+noncomputable def MeshSet (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Set ℂ :=
+  let (z, w) := s
+  let N : ℕ := Nat.ceil ((w-z).re / δ)
+  let M : ℕ := Nat.ceil ((w-z).im / δ)
+  let NM := Finset.product (range N) (range M)    -- Btm_Left Corners : {0, 1, ..., N-1} × {0, 1, ..., M-1}
+  let lattice := NM.image (fun (i, j) => (z.re + i * δ) + I * (z.im + j * δ))
+  ⋃ z ∈ lattice, closed_square z δ
+
+-- This function is used to get the mesh as a single complex rectangle
+noncomputable def MeshSet' (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Set ℂ :=
+  let (z, w) := s
+  let N : ℕ := Nat.ceil ((w-z).re / δ)
+  let M : ℕ := Nat.ceil ((w-z).im / δ)
+  Icc z.re (z.re + N * δ) ×ℂ Icc z.im (z.im + M * δ)
+
+#check mt mem_iUnion.mpr
+
+-- Equivalence of two definitions of MeshSet
+lemma mesh_intervals (s : ℂ × ℂ) (hs : s.1.re < s.2.re ∧ s.1.im < s.2.im) {δ : ℝ} (hδ : 0 < δ) : MeshSet s hδ = MeshSet' s hδ := by
+  apply subset_antisymm
+  let (z,w) := s
+  · unfold MeshSet MeshSet'
+    dsimp
+    intro x hx
+    rw [mem_iUnion] at hx
+    obtain ⟨y, hy⟩ := hx
+    simp at hy
+    obtain ⟨hy, hy'⟩ := hy
+    obtain ⟨a, b, hab, hab'⟩ := hy
+    rw [←hab'] at hy'
+    unfold closed_square at hy'
+    apply mem_reProdIm.mp at hy'
+    obtain ⟨hre, him⟩ := hy'
+    simp at hre
+    simp at him
+    apply mem_reProdIm.mpr
+    constructor
+    · simp
+      constructor
+      · apply LE.le.trans _ hre.1
+        simp
+        apply mul_nonneg
+        · have _ : ¬ a < 0 := by apply Nat.not_lt_zero
+          linarith
+        · exact LT.lt.le hδ
+
+      · apply LE.le.trans hre.2
+        rw [add_assoc, ←add_one_mul]
+        simp
+        rw [mul_le_mul_right]
+        · norm_cast
+          exact Nat.add_one_le_iff.mpr hab.1
+        · exact hδ
+
+    · simp
+      constructor
+      · apply LE.le.trans _ him.left
+        simp
+        apply mul_nonneg
+        · have _ : ¬ b < 0 := by apply Nat.not_lt_zero
+          linarith
+        · exact LT.lt.le hδ
+
+      · apply LE.le.trans him.2
+        rw [add_assoc, ← add_one_mul]
+        simp
+        rw [mul_le_mul_right]
+        · norm_cast
+          exact Nat.add_one_le_iff.mpr hab.2
+        · exact hδ
+
+  · unfold MeshSet MeshSet'
+    dsimp
+    intro x hx
+    rw [mem_iUnion]
+    simp
+    apply mem_reProdIm.mp at hx
+    simp at hx
+    obtain ⟨hxre, hxim⟩ := hx
+    obtain ⟨hxre₁, hxre₂⟩ := hxre
+    apply LE.le.eq_or_lt at hxre₁
+    obtain ⟨hxim₁, hxim₂⟩ := hxim
+    apply LE.le.eq_or_lt at hxim₁
+    let n := if 0 < (x-s.1).re then Nat.ceil ((x-s.1).re / δ) - 1 else 0
+    let m := if 0 < (x-s.1).im then Nat.ceil ((x-s.1).im / δ) - 1 else 0
+    let z := s.1.re + n * δ + I * (s.1.im + m * δ)
+    use z
+    cases hxre₁ with
+    | inl hxre₁ =>
+      cases hxim₁ with
+      | inl hxim₁ =>
+        have h₁ : ¬ 0 < (x-s.1).re := by simp; linarith
+        have h₁' : ¬ 0 < (x-s.1).im := by simp; linarith
+        constructor
+        · use n,m
+          constructor
+          · unfold n m
+            simp [h₁, hxre₁, h₁', hxim₁]
+            rw [← hxre₁, ← hxim₁, lt_div_iff₀ hδ, lt_div_iff₀ hδ, zero_mul]
+            simp
+            exact hs
+          · rfl
+        · unfold closed_square
+          apply mem_reProdIm.mpr
+          constructor
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z n
+              simp [h₁, hxre₁]
+            · unfold z n
+              simp [h₁, hxre₁]
+              exact LT.lt.le hδ
+
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z m
+              simp [h₁', hxim₁]
+            · unfold z m
+              simp [h₁', hxim₁]
+              exact LT.lt.le hδ
+
+      | inr hxim₁ =>
+        have h₁ : ¬ 0 < (x-s.1).re := by simp; linarith
+        have h₂ : 1 ≤ ⌈(x.im - s.1.im) / δ⌉₊ := by rw [Nat.one_le_ceil_iff, lt_div_iff₀ hδ, zero_mul]; linarith
+        constructor
+        · use n,m
+          constructor
+          · unfold n m
+            simp [h₁, hxre₁, hxim₁]
+            constructor
+            · rw [← hxre₁, lt_div_iff₀ hδ, zero_mul]
+              simp
+              exact hs.1
+
+            · have h' : ((x - s.1).im / δ) ≤ ↑⌈(s.2.im - s.1.im) / δ⌉₊ := by
+                rw [div_le_iff₀ hδ, sub_im, sub_le_iff_le_add, add_comm]
+                exact hxim₂
+
+              rw [←Nat.cast_lt (α := ℝ), Nat.cast_sub h₂]
+              apply LT.lt.trans_le _ h'
+              rw [sub_lt_iff_lt_add]
+              rw [sub_im, Nat.cast_one]
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+          · rfl
+
+        · unfold closed_square
+          apply mem_reProdIm.mpr
+          constructor
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z n
+              simp [h₁, hxre₁]
+            · unfold z n
+              simp [h₁, hxre₁]
+              exact LT.lt.le hδ
+
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z m
+              simp [hxim₁]
+              rw [← le_sub_iff_add_le', ← le_div_iff₀ hδ,
+                  Nat.cast_sub h₂, sub_le_iff_le_add, Nat.cast_one, le_iff_lt_or_eq]
+              left
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+
+            · unfold z m
+              simp [hxim₁]
+              rw [add_assoc, ← sub_le_iff_le_add', ← add_one_mul, ← div_le_iff₀ hδ,
+                Nat.cast_sub h₂, Nat.cast_one, sub_add_cancel]
+              apply Nat.le_ceil
+
+
+    | inr hxre₁ =>
+      cases hxim₁ with
+      | inl hxim₁ =>
+        have h₁ : ¬ 0 < (x-s.1).im := by simp; linarith
+        have h₂ : 1 ≤ ⌈(x.re - s.1.re) / δ⌉₊ := by rw [Nat.one_le_ceil_iff, lt_div_iff₀ hδ, zero_mul]; linarith
+        constructor
+        · use n, m
+          constructor
+          · unfold n m
+            simp [h₁, hxre₁, hxim₁]
+            constructor
+            · have h' : ((x - s.1).re / δ) ≤ ↑⌈(s.2.re - s.1.re) / δ⌉₊ := by
+                rw [div_le_iff₀ hδ, sub_re, sub_le_iff_le_add, add_comm]
+                exact hxre₂
+
+              rw [←Nat.cast_lt (α := ℝ), Nat.cast_sub h₂]
+              apply LT.lt.trans_le _ h'
+              rw [sub_lt_iff_lt_add]
+              rw [sub_re, Nat.cast_one]
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+
+            · rw [← hxim₁, lt_div_iff₀ hδ, zero_mul]
+              simp
+              exact hs.2
+          · rfl
+        · unfold closed_square
+          apply mem_reProdIm.mpr
+          constructor
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z n
+              simp [hxre₁]
+              rw [← le_sub_iff_add_le', ← le_div_iff₀ hδ,
+                Nat.cast_sub h₂, sub_le_iff_le_add, Nat.cast_one, le_iff_lt_or_eq]
+              left
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+
+            · unfold z n
+              simp [hxre₁]
+              rw [add_assoc, ← sub_le_iff_le_add', ← add_one_mul, ← div_le_iff₀ hδ,
+                Nat.cast_sub h₂, Nat.cast_one, sub_add_cancel]
+              apply Nat.le_ceil
+
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z m
+              simp [h₁, hxim₁]
+            · unfold z m
+              simp [h₁, hxim₁]
+              exact LT.lt.le hδ
+
+      | inr hxim₁ =>
+        have h₁ : 1 ≤ ⌈(x.re - s.1.re) / δ⌉₊ := by rw [Nat.one_le_ceil_iff, lt_div_iff₀ hδ, zero_mul]; linarith
+        have h₂ : 1 ≤ ⌈(x.im - s.1.im) / δ⌉₊ := by rw [Nat.one_le_ceil_iff, lt_div_iff₀ hδ, zero_mul]; linarith
+        constructor
+        · use n, m
+          constructor
+          · unfold n m
+            simp [hxre₁, hxim₁]
+            constructor
+            · have h' : ((x - s.1).re / δ) ≤ ↑⌈(s.2.re - s.1.re) / δ⌉₊ := by
+                rw [div_le_iff₀ hδ, sub_re, sub_le_iff_le_add, add_comm]
+                exact hxre₂
+
+              rw [←Nat.cast_lt (α := ℝ), Nat.cast_sub h₁]
+              apply LT.lt.trans_le _ h'
+              rw [sub_lt_iff_lt_add]
+              rw [sub_re, Nat.cast_one]
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+
+            · have h' : ((x - s.1).im / δ) ≤ ↑⌈(s.2.im - s.1.im) / δ⌉₊ := by
+                rw [div_le_iff₀ hδ, sub_im, sub_le_iff_le_add, add_comm]
+                exact hxim₂
+
+              rw [←Nat.cast_lt (α := ℝ), Nat.cast_sub h₂]
+              apply LT.lt.trans_le _ h'
+              rw [sub_lt_iff_lt_add]
+              rw [sub_im, Nat.cast_one]
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+          · rfl
+
+        · unfold closed_square
+          apply mem_reProdIm.mpr
+          constructor
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z n
+              simp [hxre₁]
+              rw [← le_sub_iff_add_le', ← le_div_iff₀ hδ,
+                Nat.cast_sub h₁, sub_le_iff_le_add, Nat.cast_one, le_iff_lt_or_eq]
+              left
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+
+            · unfold z n
+              simp [hxre₁]
+              rw [add_assoc, ← sub_le_iff_le_add', ← add_one_mul, ← div_le_iff₀ hδ,
+                Nat.cast_sub h₁, Nat.cast_one, sub_add_cancel]
+              apply Nat.le_ceil
+
+          · apply Set.mem_Icc.mpr
+            constructor
+            · unfold z m
+              simp [hxim₁]
+              rw [← le_sub_iff_add_le', ← le_div_iff₀ hδ,
+                Nat.cast_sub h₂, sub_le_iff_le_add, Nat.cast_one, le_iff_lt_or_eq]
+              left
+              apply Nat.ceil_lt_add_one
+              rw [le_div_iff₀ hδ, zero_mul]
+              linarith
+
+            · unfold z m
+              simp [hxim₁]
+              rw [add_assoc, ← sub_le_iff_le_add', ← add_one_mul, ← div_le_iff₀ hδ,
+                Nat.cast_sub h₂, Nat.cast_one, sub_add_cancel]
+              apply Nat.le_ceil
+
+-- Compact set `K` is contained in the `MeshSet of` the `Box` around it
+lemma subset_mesh (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) {δ : ℝ} (hδ : 0 < δ) :
+  K ⊆ MeshSet (Box K hε) hδ := by
+
+  have hKre : IsCompact (re ''K) := by
+    apply IsCompact.image
+    · exact Gridable.hK
+    · exact continuous_re
+
+  have hKim : IsCompact (im ''K) := by
+    apply IsCompact.image
+    · exact Gridable.hK
+    · exact continuous_im
+
+  rw [mesh_intervals, Set.subset_def]
+  intro x hx
+  unfold MeshSet'
+  simp
+  apply mem_reProdIm.mpr
+  constructor
+  · simp
+    constructor
+    · unfold Box
+      simp
+      have h' : sInf (re ''K) ≤ x.re := by
+        apply csInf_le
+        · exact IsCompact.bddBelow hKre
+        · exact Set.mem_image_of_mem re hx
+      apply LE.le.trans h'
+      simp
+      exact LT.lt.le hε
+
+    · unfold Box
+      simp
+      have h: sInf (re '' K) - ε + ((sSup (re '' K) + ε - (sInf (re '' K) - ε)) / δ) * δ ≤
+        sInf (re '' K) - ε + ↑⌈(sSup (re '' K) + ε - (sInf (re '' K) - ε)) / δ⌉₊ * δ := by
+        simp
+        rw [mul_le_mul_right hδ]
+        apply Nat.le_ceil
+
+      apply LE.le.trans _ h
+      rw [add_comm,← sub_le_iff_le_add, ←div_le_iff₀ hδ, div_le_div_iff_of_pos_right hδ]
+      have h : (sInf (re '' K) - ε) ≤ (sSup (re '' K) + ε ) := by
+        rw [sub_le_iff_le_add, add_assoc]
+        have h' : sInf (re '' K) ≤ sSup (re '' K) := by
+          apply csInf_le_csSup
+          · exact IsCompact.bddBelow hKre
+          · exact IsCompact.bddAbove hKre
+          · exact Set.Nonempty.image re Gridable.hNon
+
+        apply LE.le.trans h'
+        simp
+        exact LT.lt.le hε
+
+      rw [tsub_le_tsub_iff_right h]
+
+      have h' : x.re ≤ sSup (re ''K) := by
+        apply le_csSup
+        · exact IsCompact.bddAbove hKre
+        · exact Set.mem_image_of_mem re hx
+      apply LE.le.trans h'
+      simp
+      exact LT.lt.le hε
+
+  · simp
+    constructor
+    · unfold Box
+      simp
+      have h' : sInf (im ''K) ≤ x.im := by
+        apply csInf_le
+        · exact IsCompact.bddBelow hKim
+        · exact Set.mem_image_of_mem im hx
+      apply LE.le.trans h'
+      simp
+      exact LT.lt.le hε
+
+    · unfold Box
+      simp
+      have h: sInf (im '' K) - ε + ((sSup (im '' K) + ε - (sInf (im '' K) - ε)) / δ) * δ ≤
+        sInf (im '' K) - ε + ↑⌈(sSup (im '' K) + ε - (sInf (im '' K) - ε)) / δ⌉₊ * δ := by
+        simp
+        rw [mul_le_mul_right hδ]
+        apply Nat.le_ceil
+
+      apply LE.le.trans _ h
+      rw [add_comm,← sub_le_iff_le_add, ←div_le_iff₀ hδ, div_le_div_iff_of_pos_right hδ]
+
+      have h : (sInf (im '' K) - ε) ≤ (sSup (im '' K) + ε ) := by
+        rw [sub_le_iff_le_add, add_assoc]
+        have h' : sInf (im '' K) ≤ sSup (im '' K) := by
+          apply csInf_le_csSup
+          · exact IsCompact.bddBelow hKim
+          · exact IsCompact.bddAbove hKim
+          · exact Set.Nonempty.image im Gridable.hNon
+
+        apply LE.le.trans h'
+        simp
+        exact LT.lt.le hε
+
+      rw [tsub_le_tsub_iff_right h]
+
+      have h' : x.im ≤ sSup (im ''K) := by
+        apply le_csSup
+        · exact IsCompact.bddAbove hKim
+        · exact Set.mem_image_of_mem im hx
+      apply LE.le.trans h'
+      simp
+      exact LT.lt.le hε
+
+  · simp [Box]
+    constructor
+    · rw [sub_lt_iff_lt_add, add_assoc]
+      have h' : sInf (re '' K) ≤ sSup (re '' K) := by
+        apply csInf_le_csSup
+        · exact IsCompact.bddBelow hKre
+        · exact IsCompact.bddAbove hKre
+        · exact Set.Nonempty.image re Gridable.hNon
+
+      apply LE.le.trans_lt h'
+      simp
+      exact hε
+
+    · rw [sub_lt_iff_lt_add, add_assoc]
+      have h' : sInf (im '' K) ≤ sSup (im '' K) := by
+        apply csInf_le_csSup
+        · exact IsCompact.bddBelow hKim
+        · exact IsCompact.bddAbove hKim
+        · exact Set.Nonempty.image im Gridable.hNon
+
+      apply LE.le.trans_lt h'
+      simp
+      exact hε
+
 
 /-- This function tells me when the edge between z and w has only one square that intersects K-/
 noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z w : ℂ) (δ : ℝ) : Prop :=
@@ -177,6 +625,7 @@ lemma one_common_square_symm_fwd {K : Set ℂ} [Gridable K] : one_common_square 
 
   -- ‖w-z‖ ≠ δ
   ·  simp [h₁] at h
+
 
 theorem one_common_square_symm {K : Set ℂ} [Gridable K] : one_common_square K z w δ ↔ one_common_square K w z δ := by
   constructor
@@ -312,6 +761,7 @@ noncomputable def GridContour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 < 
   let vertices : Finset ℂ := { v ∈ Mesh | ((closed_square v δ) ∩ K).Nonempty }
   ContourGraph K hδ vertices
 
+-- Orients the edge `(z,w)` so it points in the direction of integration
 noncomputable def Orient (K : Set ℂ) [Gridable K] {δ : ℝ}
     (hδ : 0 < δ) (x : ℂ × ℂ) : (ℂ × ℂ) :=
   let (z, w) := x
@@ -400,6 +850,10 @@ lemma orient_canonical (K: Set ℂ) [Gridable K] {δ : ℝ}
             simp
             exact h_orient
 
+
+/-- Filters the given vertex set `V` to include oriented pairs `(z,w)` such that the edge between `z` and `w` is
+has one square touching `K` and one not touching `K`.
+-/
 noncomputable def DirectedEdgeSetOriented (K : Set ℂ) [Gridable K] {δ : ℝ}
     (hδ : 0 < δ) (V :Finset ℂ): Finset (ℂ × ℂ) :=
     ((V.product V).filter (fun p ↦ (ContourGraph K hδ V).Adj p.1 p.2)).image (Orient K hδ)
@@ -448,8 +902,6 @@ noncomputable def edgeInterval (e : ℂ × ℂ) : Set ℂ :=
     else if z.im = w.im then
       Icc (min z.re w.re) (max z.re w.re) ×ℂ {z.im}
     else ∅
-
-#check Norm ℂ
 
 -- Edge Intervals don't touch K
 lemma edge_interval_inter_empty (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (h : one_common_square K z w δ):
@@ -650,11 +1102,58 @@ lemma edge_interval_inter_empty (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 <
             have h'' : ¬w.im < z.im := by linarith
             simp [h₁, h₁', h₃, h'' ] at h
 
+-- Gets the Grid Contour as a Union of edge intervals
+noncomputable def GridContourBoundary (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
+  let ε := 2 * δ
+  have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
+  let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+  let edges := (DirectedEdgeSetOriented K hδ V)
+  ⋃ e ∈ edges, edgeInterval e
 
--- This function is used to convert the edges of the contour graph into intervals
-noncomputable def GridContourSet (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
-    let ε := 2 * δ
-    have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
-    let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
-    let edges := (DirectedEdgeSetOriented K hδ V)
-    ⋃ e ∈ edges, edgeInterval e
+-- Gets the the set enclosed by the Grid Contour as a union of closed squares
+noncomputable def GridContourClosure (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
+  let ε := 2 * δ
+  have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
+  let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+  ⋃ v ∈ V, closed_square v δ
+
+lemma subset_grid_contour_area (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : K ⊆ GridContourClosure K hδ := by
+  intro x hx
+  unfold GridContourClosure
+  let ε := 2 * δ
+  have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
+  let pair := (Box K hε)
+  let z₁ := pair.1
+  let z₂ := pair.2
+  have h : (z₁, z₂) = Box K hε := by rfl
+  let V := (Mesh (z₁, z₂) hδ)
+  let V' := V.filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+  dsimp
+  have hx' : x ∈ MeshSet (Box K hε) hδ := mem_of_subset_of_mem (subset_mesh K hε hδ) hx
+  unfold MeshSet at hx'
+  rw [←h] at hx'
+  rw [mem_iUnion] at hx'
+  simp at hx'
+  obtain ⟨v, hv, hx'⟩ := hx'
+  obtain ⟨n, m, hv⟩ := hv
+  rw [←h, mem_iUnion]
+  simp
+  use v
+  constructor
+  · constructor
+    · unfold Mesh
+      simp
+      use n, m
+
+    · rw [nonempty_def]
+      use x
+      constructor
+      · exact hx'
+      · exact hx
+
+  · exact hx'
+
+noncomputable def GridContourCollection (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Finset ℂ :=
+  let ε := 2 * δ
+  have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
+  (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)

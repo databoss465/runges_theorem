@@ -75,15 +75,15 @@ lemma square_dist {z x y : ℂ} {δ : ℝ} (hδ : 0 < δ) (hx : x ∈ closed_squ
     _ = √2 * δ := by rw [Real.sqrt_sq (LT.lt.le hδ)]
     _ < 2 * δ := hδ'
 
--- For every `x` in the `GridContourSet K hδ`, there exists a `y` in `K` such that `dist x y < 2 * δ`
+-- For every `x` in the `GridContourBoundary K hδ`, there exists a `y` in `K` such that `dist x y < 2 * δ`
 lemma grid_contour_sep (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
-  ∀ x ∈ (GridContourSet K hδ), ∃ y ∈ K, dist x y < 2 * δ := by
+  ∀ x ∈ (GridContourBoundary K hδ), ∃ y ∈ K, dist x y < 2 * δ := by
 
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
   let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
   let edges := (DirectedEdgeSetOriented K hδ V)
-  have h : GridContourSet K hδ = ⋃ e ∈ edges, edgeInterval e := by rfl
+  have h : GridContourBoundary K hδ = ⋃ e ∈ edges, edgeInterval e := by rfl
 
   intro x hx
   rw [h, mem_iUnion] at hx
@@ -407,10 +407,50 @@ lemma grid_contour_sep (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
           simp [h'] at h
           linarith
 
+lemma open_sq_subset_closed_sq (v : ℂ) {δ : ℝ} (hδ : 0 < δ) : open_square v δ ⊆ closed_square v δ := by sorry
+
+-- Integral over the grid contour is the sum integral of individual squares!
+lemma gc_integral_eq_sum_sq_integral {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
+    GridContourIntegral f K hδ = ∑ z ∈ GridContourCollection K hδ, (square_integral f z hδ ):= by sorry
+
+lemma DifferentiableOn.square_integral_sub_inv_smul {v : ℂ} {δ : ℝ} (hδ : 0 < δ)
+  {f : ℂ → ℂ} (hf : ∀ x ∈ closed_square v δ, DifferentiableAt ℂ f x) :
+  ∀ a ∈ open_square v δ, square_integral (fun z ↦ (z - a)⁻¹ • f z) v hδ = (2 * π * I) • f a := by sorry
+
+lemma DifferentiableOn.square_integral_eq_zero {v : ℂ} {δ : ℝ} (hδ : 0 < δ)
+  {f : ℂ → ℂ} (hf : ∀ x ∈ closed_square v δ, DifferentiableAt ℂ f x) :
+  ∀ a ∉ closed_square v δ, square_integral (fun z ↦ (z - a)⁻¹ • f z) v hδ = 0 := by sorry
+
+#check Finset.sum_eq_single
+
 -- CIF_GridContour
-lemma DifferentiableOn.grid_contour_integral_sub_inv_smul {Ω K : Set ℂ} {f : ℂ → ℂ}
-  (hΩ : IsOpen Ω) (hΩK : K ⊆ Ω) [Gridable K] (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
-  ∀ a ∈ K, GridContourIntegral (fun z ↦ (z - a)⁻¹ • f z) K hδ = (2 * π * I) • f a := by sorry
+lemma DifferentiableOn.grid_contour_integral_sub_inv_smul {Ω K : Set ℂ} {f : ℂ → ℂ} {δ : ℝ}
+  (hδ : 0 < δ) (hΩ : IsOpen Ω) (hΩK : K ⊆ Ω) [Gridable K] (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
+  ∀ a ∈ K, GridContourIntegral (fun x ↦ (x - a)⁻¹ • f x) K hδ = (2 * π * I) • f a := by
+    intro a ha
+    apply mem_of_subset_of_mem (subset_grid_contour_area K hδ) at ha
+    let ε := 2 * δ
+    have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
+    let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+    have h : GridContourClosure K hδ = ⋃ v ∈ V, closed_square v δ := by rfl
+    rw [h, mem_iUnion] at ha
+    obtain ⟨w, hw⟩ := ha
+    simp at hw
+    let ⟨hv, hw⟩ := hw
+    rw [←diff_union_of_subset (open_sq_subset_closed_sq w hδ), union_comm] at hw
+    apply mem_or_mem_of_mem_union at hw
+    cases hw with
+    | inl hw =>
+        have hw' : ∀ v' ∈ V, a ∉ closed_square v' δ := by sorry
+        have h' : GridContourCollection K hδ = V := by rfl
+        let F (z : ℂ) := if z = w then (2 * π * I) • f a else 0
+
+        rw [gc_integral_eq_sum_sq_integral, h']
+        -- How to use above lemmas to simplify this summation?
+        sorry
+
+    | inr hw => sorry
 
 
 /-- **Separation Lemma**: Given a compact set `K` and a function `f : ℂ → ℂ` that is complex differentiable on
@@ -421,7 +461,7 @@ contained in `Ω \ K`.
 theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hΩ₁ : Ωᶜ.Nonempty) (hΩK : K ⊆ Ω) [Gridable K]
   (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
   ∃ (δ : ℝ) (hδ : 0 < δ), (∀ a ∈ K, GridContourIntegral (fun z ↦ (z - a)⁻¹ • f z) K hδ = (2 * π * I) • f a) ∧
-  (GridContourSet K hδ ⊆ Ω \ K) := by
+  (GridContourBoundary K hδ ⊆ Ω \ K) := by
   have hΩK' : Disjoint K Ωᶜ := disjoint_compl_right_iff_subset.mpr hΩK
   obtain ⟨x₀, hx₀, hKx₀⟩ := point_of_least_sep K Ωᶜ
   let d : ℝ := infDist x₀ Ωᶜ / 2
@@ -430,13 +470,13 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
     rw [← IsClosed.not_mem_iff_infDist_pos (isClosed_compl_iff.mpr hΩ) hΩ₁, not_mem_compl_iff]
     exact mem_of_subset_of_mem hΩK hx₀
 
-  have hΓK : Disjoint K (GridContourSet K hd) := by
+  have hΓK : Disjoint K (GridContourBoundary K hd) := by
         rw [disjoint_iff_inter_eq_empty, inter_comm]
         let ε := 2 * d
         have hε : 0 < ε := by apply mul_pos; linarith; exact hd
         let V := (Mesh (Box K hε) hd).filter (fun v ↦ ((closed_square v d) ∩ K).Nonempty)
         let edges := (DirectedEdgeSetOriented K hd V)
-        have h : GridContourSet K hd = ⋃ e ∈ edges, edgeInterval e := by rfl
+        have h : GridContourBoundary K hd = ⋃ e ∈ edges, edgeInterval e := by rfl
         rw [h, iUnion_inter K, iUnion_eq_empty]
         intro (z,w)
         rw [iUnion_inter, iUnion_eq_empty]
@@ -447,7 +487,7 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
           apply (edge_interval_inter_empty K hd hzw.2)
         exact h'
 
-  have hΓδ : ∀ x ∈ (GridContourSet K hd), ∃ y ∈ K, dist x y < infDist x₀ Ωᶜ := by
+  have hΓδ : ∀ x ∈ (GridContourBoundary K hd), ∃ y ∈ K, dist x y < infDist x₀ Ωᶜ := by
     have h2d : infDist x₀ Ωᶜ = 2 * d := by unfold d; ring
     rw [h2d]
     exact grid_contour_sep K hd
@@ -455,7 +495,7 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
   use d, hd
   constructor
   -- CIF Statement
-  · exact DifferentiableOn.grid_contour_integral_sub_inv_smul hΩ hΩK hf
+  · exact DifferentiableOn.grid_contour_integral_sub_inv_smul hd hΩ hΩK hf
 
   -- Contour Set Statement
   · rw [diff_eq, Set.subset_inter_iff, and_comm]
@@ -483,8 +523,8 @@ theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (h
 
 -- TODO : Show that every edge is contained in `Ω` => The argument is that `d(K, Γ)` is less than  `d(K, Ωᶜ)`
 
--- Needs work!
+-- Needs work! Either state in terms of integral or use separation lemma in the proof! Better the first.
 theorem approximation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} {δ : ℝ} (hΩ : IsOpen Ω)
   (hΩK : K ⊆ Ω) [Gridable K] (hδ : 0 < δ) (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
-  ∃ (R : RatFunc ℂ), (only_poles_in' (GridContourSet K hδ) R) ∧
+  ∃ (R : RatFunc ℂ), (only_poles_in' (GridContourBoundary K hδ) R) ∧
   (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by sorry
