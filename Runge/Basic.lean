@@ -6,6 +6,18 @@ import Mathlib.Order.Interval.Set.Basic
 import Mathlib.Topology.Basic
 import Mathlib
 
+/-!
+# Basic Definitions and Auxiliary Lemmas
+
+This file contains all the basic definitions and auxiliary lemmas required for the proof of Runge's Theorem.
+It includes definitions related to rational functions, such as `pole_at`, `poles_in`, and `only_poles_in`.
+There are also Auxiliary lemmas for handling open sets, connected components, and integrals. Cauchy's integral
+formula-type lemmas will also be included here.
+
+These results serve as the groundwork for the Separation Lemma, Approximation Lemma, and the proof of Runge's Theorem.
+
+-/
+
 open Set TopologicalSpace RatFunc ContinuousMap Metric Complex Polynomial
 
 /-- **Unnamed Lemma** This gives us some specific conditions under which we can assert that two open sets in ℂ
@@ -112,7 +124,7 @@ lemma open_subset_eq_of_boundary_disjoint_and_intersects_components {U V : Set �
 
 
 #check Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
--- In my hypothesis for Runge's Theorem, f is Differentiable over all of Ω, and thus over all of K. Since Γ would be within Ω \ K,
+-- In the hypothesis for Runge's Theorem, f is Differentiable over all of Ω, and thus over all of K. Since Γ would be within Ω \ K,
 -- we shall only take the hypothesis that f is diffentaible on the closed square.
 -- consider making all rectangles squares... We anyway need unions of squares
 
@@ -186,14 +198,3 @@ instance coe : Coe (Set ℂ) (Set (OnePoint ℂ)) := ⟨coe_set⟩
 
 def rev_coe_set : Set (OnePoint ℂ) → Set ℂ := fun E ↦ {z | ↑z ∈ E}
 instance rev_coe : Coe (Set (OnePoint ℂ)) (Set ℂ) := ⟨rev_coe_set⟩
-
-/-
-theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hK : IsCompact K)
-    (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) : ∃ γ : Grid_Contour, (as_set γ ⊆ Ω \ K) ∧ (∀ z ∈ K,
-    integral γ ((z - a)⁻¹ • f z) = 2 * π * I * f a) := by sorry
-
-theorem approximation_lemma {K : Set ℂ} {γ : Grid_Contour} {f : ℂ → ℂ} (hK : IsCompact K)
-    (hγ'₁ : bdry γ ∩ K = ∅) (hγ'₂ : ∀ z ∈ K, integral γ ((z - a)⁻¹ • f z) = 2 * π * I * f a)
-    (hf' : ContinuousOn f (bdry γ)) : ∀ ε > 0, ∃ R : RatFunc ℂ, (only_poles_in' (bdry γ)) ∧
-    (∀ x ∈ K, ‖f x - R.eval (RingHom.id ℂ) x‖ < ε) := by sorry
--/

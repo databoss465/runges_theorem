@@ -1,79 +1,67 @@
 import Mathlib
 
+/-!
+# Grid Contour
+
+This file contains lemmas and definitions related to Grid Contours of compact sets.
+The Grid Contour is an approximation of the boundary of a compact set in the complex plane
+using vertical and horizontal line segments of a fixed length. We use this approximation
+to approximate the contour integral of a function over the boundary of the compact set.
+
+## Main Definitions
+* `open_square` and `closed_square`: Definitions of open and closed squares in the complex plane.
+* `square_integral`: Definition of the integral of a function along the boundary of a square.
+* `Gridable`: A typeclass for nonempty compact sets where we can decide if a given square
+  intersects it or not.
+* `Mesh`: A function that generates the lattice points in a `Box` around a compact set.
+* `MeshSet`: A function that generates the area covered by the mesh as a union of
+  closed squares.
+* `MeshSet'`: A function that generates the area covered by the mesh as a single
+  complex rectangle.
+* `mesh_intervals`: An equivalence of two definitions of `MeshSet`.
+* `subset_mesh`: The compact set for which we are generating the mesh is contained
+  in the `MeshSet` of the `Box` around it.
+* `one_common_square`: A function that indicates that of the two squares sharing a
+  given edge
+  only one of them intersects the compact set.
+* `GridContour`: A function that takes compact set `K` and resolution `δ` and
+   generates the contour as a `SimpleGraph` with vertices in the mesh and edges
+   along the squares.
+* `DirectedEdgeSetOriented`: A function to generate the set of directed edges
+  so that the contour is oriented in CCW direction.
+* `GridContourIntegral`: Represents the integral of a function over the grid contour
+  as a piecewise integral over the edges
+* `edge_interval_inter_empty`: No edge of the grid contour intersects the compact set
+* `GridContourBoundary`: The union of edges as intervals
+* `GridContourClosure`: The grid contour along with its interior
+* `GridContourCollection`: Points of the mesh that are on the Grid Contour
+* `subset_grid_contour_area`: The compact set `K` is contained inside the `GridContourClosure`
+-/
+
 open Complex Set Finset SimpleGraph
 
+noncomputable section
+
 set_option linter.unusedVariables false
+set_option linter.unusedSectionVars false
 
--- A square in the complex plane
-structure complex_square where
-  btm_left : ℂ    -- Bottom left corner
-  side : ℝ        -- Side length
-  h₁ : side > 0
+-- Defines the open square with bottom left corner `s` and side `δ`
+def open_square (s : ℂ) (δ : ℝ) : Set ℂ := Ioo (s.re) (s.re + δ) ×ℂ Ioo (s.im) (s.im + δ)
 
-def unit_square : complex_square := ⟨0, 1, by linarith⟩
-#check unit_square
+-- Defines the closed square with bottom left corner `s` and side `δ`
+def closed_square (s : ℂ) (δ : ℝ) : Set ℂ := Icc (s.re) (s.re + δ) ×ℂ Icc (s.im) (s.im + δ)
 
--- The vertices of a complex square listed in a counter-clockwise order
-def complex_sq_vertices (s: complex_square) : List ℂ :=
-  [s.btm_left,
-    s.btm_left + s.side,
-    s.btm_left + s.side + s.side * I,
-    s.btm_left + s.side * I]
+lemma open_sq_subset_closed_sq (v : ℂ) {δ : ℝ} (hδ : 0 < δ) : open_square v δ ⊆ closed_square v δ := by
+  unfold open_square closed_square
+  apply reProdIm_subset_iff.mpr
+  apply prod_subset_prod_iff.mpr
+  constructor
+  · constructor
+    · apply Set.Ioo_subset_Icc_self
+    · apply Set.Ioo_subset_Icc_self
 
-#eval complex_sq_vertices unit_square   --Essentially [0, 1, 1 + i, i] but it doesn't look like that
-
-def complex_sq_as_set (s: complex_square) : Set ℂ :=
-  Ico s.btm_left.re (s.btm_left.re + s.side) ×ℂ Ico s.btm_left.im (s.btm_left.im + s.side)
-
-def complex_sq_interior (s: complex_square) : Set ℂ :=
-  let z := s.btm_left
-  let w := s.btm_left + s.side * (1 + I) -- Top-right corner
- (Set.Ioo (min z.re w.re) (max z.re w.re) ×ℂ Set.Ioo (min z.im w.im) (max z.im w.im))
-
-def complex_sq_closure (s: complex_square) : Set ℂ :=
-  let z := s.btm_left
-  let w := s.btm_left + s.side * (1 + I) -- Top-right corner
-  uIcc z.re w.re ×ℂ uIcc z.im w.im
-
--- Integral of a function over a complex square
-noncomputable def complex_sq_boundary_integral {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (s : complex_square) : E :=
-  let z := s.btm_left
-  let w := s.btm_left + s.side * (1 + I) -- Top-right corner
-  (((∫ (x : ℝ) in z.re..w.re, f (↑x + ↑z.im * Complex.I)) - ∫ (x : ℝ) in
-  z.re..w.re, f (↑x + ↑w.im * Complex.I)) + Complex.I • ∫ (y : ℝ) in z.im..w.im, f
-  (↑w.re + ↑y * Complex.I)) - Complex.I • ∫ (y : ℝ) in z.im..w.im, f (↑z.re + ↑y * Complex.I)
-
-noncomputable def complex_sq_boundary_integral' {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (s : complex_square) : E :=
-  let vs := complex_sq_vertices s
-  have h₁ : vs.length = 4 := by rfl
-  (∫ x in vs[0].re..vs[1].re, f (x + vs[0].im * I)) - (∫ x in vs[3].re..vs[2].re, f (x + vs[2].im * I)) +
-  I • ((∫ y in vs[1].im..vs[2].im, f (vs[1].re + y * I)) - (∫ y in vs[0].im..vs[3].im, f (vs[3].re + y * I)))
-
-theorem complex_sq_boundary_integral_eq_zero {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (s : complex_square) (hC : ContinuousOn f (complex_sq_closure s))
-    (hD : DifferentiableOn ℂ f (complex_sq_interior s)) :
-    complex_sq_boundary_integral f s = 0 := by
-    let z := s.btm_left
-    let w := s.btm_left + s.side * (1 + I) -- Top-right corner
-    apply Complex.integral_boundary_rect_eq_zero_of_continuousOn_of_differentiableOn
-    exact hC
-    exact hD
-
-
-
-
-
-
--- **NEW APPROACH**
-
-noncomputable def open_square (s : ℂ) (δ : ℝ) : Set ℂ := Ioo (s.re) (s.re + δ) ×ℂ Ioo (s.im) (s.im + δ)
-
-noncomputable def closed_square (s : ℂ) (δ : ℝ) : Set ℂ := Icc (s.re) (s.re + δ) ×ℂ Icc (s.im) (s.im + δ)
-
--- Integral of a function over a complex square given its bottom left corner `z` and side `δ`
-noncomputable def square_integral {E : Type u} [NormedAddCommGroup E]
+-- Integral of a function along the boundary complex square given its bottom left corner `z` and side `δ`
+def square_integral {E : Type u} [NormedAddCommGroup E]
     [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z : ℂ) {δ : ℝ} (hδ : 0 < δ) : E :=
   let w := z + δ * (1 + I) -- Top-right corner
   (((∫ (x : ℝ) in z.re..w.re, f (x + z.im * I)) - ∫ (x : ℝ) in
@@ -86,11 +74,14 @@ class Gridable (K : Set ℂ) where
   hNon : K.Nonempty
   hDec : ∀ v δ, Decidable (closed_square v δ ∩ K).Nonempty
 
-instance (K : Set ℂ) [Gridable K] : DecidablePred fun v ↦ (closed_square v δ ∩ K).Nonempty :=
+-- Declare variables, compact set `K` which is an instance of `Gridable` and a positive real `δ`
+variable (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ)
+
+instance: DecidablePred fun v ↦ (closed_square v δ ∩ K).Nonempty :=
   fun v ↦ Gridable.hDec v δ
 
 -- This function is used to generate the slightly larger than minimal `Box` that contains a compact set `K`
-noncomputable def Box (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) : ℂ × ℂ :=
+def Box {ε : ℝ} (hε : 0 < ε) : ℂ × ℂ :=
   let max_re : ℝ := sSup (re '' K)
   let min_re : ℝ := sInf (re '' K)
   let max_im : ℝ := sSup (im '' K)
@@ -100,16 +91,18 @@ noncomputable def Box (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) : ℂ
 #eval Nat.ceil (11-4)/3
 
 -- This function is used to generate the lattice points in the Box
-noncomputable def Mesh (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Finset ℂ :=
+def Mesh (s : ℂ × ℂ) : Finset ℂ :=
   let (z, w) := s
+  let _ := hδ
   let N : ℕ := Nat.ceil ((w-z).re / δ)
   let M : ℕ := Nat.ceil ((w-z).im / δ)
   let NM := Finset.product (range N) (range M)
   NM.image (fun (i, j) => (z.re + i * δ) + I * (z.im + j * δ))
 
 -- This function is used to get the mesh as a union of closed square in ℂ
-noncomputable def MeshSet (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Set ℂ :=
+def MeshSet (s : ℂ × ℂ) : Set ℂ :=
   let (z, w) := s
+  let _ := hδ
   let N : ℕ := Nat.ceil ((w-z).re / δ)
   let M : ℕ := Nat.ceil ((w-z).im / δ)
   let NM := Finset.product (range N) (range M)    -- Btm_Left Corners : {0, 1, ..., N-1} × {0, 1, ..., M-1}
@@ -117,8 +110,9 @@ noncomputable def MeshSet (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Set ℂ :=
   ⋃ z ∈ lattice, closed_square z δ
 
 -- This function is used to get the mesh as a single complex rectangle
-noncomputable def MeshSet' (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Set ℂ :=
+def MeshSet' (s : ℂ × ℂ) : Set ℂ :=
   let (z, w) := s
+  let _ := hδ
   let N : ℕ := Nat.ceil ((w-z).re / δ)
   let M : ℕ := Nat.ceil ((w-z).im / δ)
   Icc z.re (z.re + N * δ) ×ℂ Icc z.im (z.im + M * δ)
@@ -126,7 +120,7 @@ noncomputable def MeshSet' (s : ℂ × ℂ) {δ : ℝ} (hδ : 0 < δ): Set ℂ :
 #check mt mem_iUnion.mpr
 
 -- Equivalence of two definitions of MeshSet
-lemma mesh_intervals (s : ℂ × ℂ) (hs : s.1.re < s.2.re ∧ s.1.im < s.2.im) {δ : ℝ} (hδ : 0 < δ) : MeshSet s hδ = MeshSet' s hδ := by
+lemma mesh_intervals (s : ℂ × ℂ) (hs : s.1.re < s.2.re ∧ s.1.im < s.2.im) : MeshSet hδ s = MeshSet' hδ s := by
   apply subset_antisymm
   let (z,w) := s
   · unfold MeshSet MeshSet'
@@ -411,8 +405,7 @@ lemma mesh_intervals (s : ℂ × ℂ) (hs : s.1.re < s.2.re ∧ s.1.im < s.2.im)
               apply Nat.le_ceil
 
 -- Compact set `K` is contained in the `MeshSet of` the `Box` around it
-lemma subset_mesh (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) {δ : ℝ} (hδ : 0 < δ) :
-  K ⊆ MeshSet (Box K hε) hδ := by
+lemma subset_mesh {ε : ℝ} (hε : 0 < ε) : K ⊆ MeshSet hδ (Box K hε)  := by
 
   have hKre : IsCompact (re ''K) := by
     apply IsCompact.image
@@ -545,7 +538,8 @@ lemma subset_mesh (K : Set ℂ) [Gridable K] {ε : ℝ} (hε : 0 < ε) {δ : ℝ
 
 
 /-- This function tells me when the edge between z and w has only one square that intersects K-/
-noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z w : ℂ) (δ : ℝ) : Prop :=
+def one_common_square (z w : ℂ) : Prop :=
+  let _ := hδ
   if ‖w-z‖ = δ then
     if (w - z).re > 0 then
       ((closed_square z δ ∩ K).Nonempty ∧ ¬(closed_square (z - δ * I) δ ∩ K).Nonempty) ∨
@@ -563,7 +557,7 @@ noncomputable def one_common_square (K : Set ℂ) [Gridable K] (z w : ℂ) (δ :
   else false
 
 
-lemma one_common_square_symm_fwd {K : Set ℂ} [Gridable K] : one_common_square K z w δ → one_common_square K w z δ := by
+lemma one_common_square_symm_fwd: one_common_square K hδ z w → one_common_square K hδ w z := by
   unfold one_common_square
   intro h
   by_cases h₁ : ‖w - z‖ = δ
@@ -627,19 +621,18 @@ lemma one_common_square_symm_fwd {K : Set ℂ} [Gridable K] : one_common_square 
   ·  simp [h₁] at h
 
 
-theorem one_common_square_symm {K : Set ℂ} [Gridable K] : one_common_square K z w δ ↔ one_common_square K w z δ := by
+theorem one_common_square_symm {K : Set ℂ} [Gridable K] : one_common_square K hδ z w ↔ one_common_square K hδ w z := by
   constructor
-  · exact one_common_square_symm_fwd
+  · apply one_common_square_symm_fwd
 
-  · intro h
-    exact one_common_square_symm_fwd h
+  · apply one_common_square_symm_fwd
 
 /-- **Contour Graph** is a function that represents the contour, of a compact set `K` approximated by axis-aligned
 line segemnts using a grid of resolution `δ`, as a simple graph with adjacency given by the conjuction of `‖z-w‖=δ` and
 the proposition that only one square with edge `z w` intersects K
 -/
-noncomputable def ContourGraph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (V : Finset ℂ) : SimpleGraph ℂ :=
-{ Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K z w δ),
+def ContourGraph (V : Finset ℂ) : SimpleGraph ℂ :=
+{ Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K hδ z w),
   symm := by
     intros z w h
     constructor
@@ -657,9 +650,7 @@ noncomputable def ContourGraph (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < 
     exact h' h.1
    }
 
---Fix this later (if possible). It's very ugly
-noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
-  DecidableRel fun z w ↦ one_common_square K z w δ := by
+instance : DecidableRel fun z w ↦ one_common_square K hδ z w := by
   intro z w
   simp [one_common_square]
   by_cases h : ‖w- z‖ = δ
@@ -726,19 +717,19 @@ noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
     apply not_and_or.mpr
     exact Or.inl h
 
-noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
+instance:
   DecidableRel fun (z w : ℂ) ↦ (ContourGraph K hδ V).Adj z w := by
   intro z w
   unfold ContourGraph
   simp
   by_cases h : ‖z - w‖ = δ
-  · by_cases h' : one_common_square K z w δ
+  · by_cases h' : one_common_square K hδ z w
     · exact isTrue ⟨h, h'⟩
     · apply isFalse
       apply not_and_or.mpr
       exact Or.inr h'
 
-  · by_cases h' : one_common_square K z w δ
+  · by_cases h' : one_common_square K hδ z w
     · apply isFalse
       apply not_and_or.mpr
       exact Or.inl h
@@ -746,25 +737,25 @@ noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
       apply not_and_or.mpr
       exact Or.inl h
 
-noncomputable instance {K : Set ℂ} [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
+instance :
   DecidablePred fun (p : ℂ × ℂ) ↦ (ContourGraph K hδ V).Adj p.1 p.2 := inferInstance
 
 
 /--**Grid Contour** Is a function that approximates the contour of a compact set `K` using a grid of resolution `δ`.
   This approximate grid contour is represented as a `SimpleGraph` with vertices in the complex plane.
 -/
-noncomputable def GridContour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 < δ) :=
+def GridContour (K : Set ℂ) [Gridable K] {δ : ℝ } (hδ : 0 < δ) :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
-  let Box := Box K hε
-  let Mesh : Finset ℂ := Mesh Box hδ
-  let vertices : Finset ℂ := { v ∈ Mesh | ((closed_square v δ) ∩ K).Nonempty }
+  let box := Box K hε
+  let mesh : Finset ℂ := Mesh hδ box
+  let vertices : Finset ℂ := { v ∈ mesh | ((closed_square v δ) ∩ K).Nonempty }
   ContourGraph K hδ vertices
 
 -- Orients the edge `(z,w)` so it points in the direction of integration
-noncomputable def Orient (K : Set ℂ) [Gridable K] {δ : ℝ}
-    (hδ : 0 < δ) (x : ℂ × ℂ) : (ℂ × ℂ) :=
+def Orient (x : ℂ × ℂ) : (ℂ × ℂ) :=
   let (z, w) := x
+  let _ := hδ
   if z.re < w.re then
     if (closed_square z δ ∩ K).Nonempty then (z, w) else (w, z)
   else if w.re <  z.re then
@@ -851,15 +842,13 @@ lemma orient_canonical (K: Set ℂ) [Gridable K] {δ : ℝ}
             exact h_orient
 
 
-/-- Filters the given vertex set `V` to include oriented pairs `(z,w)` such that the edge between `z` and `w` is
-has one square touching `K` and one not touching `K`.
+/-- Filters the given vertex set `V` to include oriented edges `(z,w)` such that
+exactly one of the two squares sharing the edge intersects the set `K`.
 -/
-noncomputable def DirectedEdgeSetOriented (K : Set ℂ) [Gridable K] {δ : ℝ}
-    (hδ : 0 < δ) (V :Finset ℂ): Finset (ℂ × ℂ) :=
+def DirectedEdgeSetOriented (V :Finset ℂ): Finset (ℂ × ℂ) :=
     ((V.product V).filter (fun p ↦ (ContourGraph K hδ V).Adj p.1 p.2)).image (Orient K hδ)
 
-lemma mem_directed_edge_set (K : Set ℂ) [Gridable K] {δ : ℝ}
-    (hδ : 0 < δ) (V :Finset ℂ): (z,w) ∈ DirectedEdgeSetOriented K hδ V → (ContourGraph K hδ V).Adj z w := by
+lemma mem_directed_edge_set (V :Finset ℂ): (z,w) ∈ DirectedEdgeSetOriented K hδ V → (ContourGraph K hδ V).Adj z w := by
     intro h
     unfold DirectedEdgeSetOriented at h
     obtain ⟨p, hp_mem, hp_eq⟩ := Finset.mem_image.mp h --This works but obtain ⟨(a,b), hp_mem, hp_eq⟩ := Finset.mem_image.mp h doesn't
@@ -875,7 +864,7 @@ lemma mem_directed_edge_set (K : Set ℂ) [Gridable K] {δ : ℝ}
       exact hp_adj
 
 /-- This function evaluates the integral of a function `f` on a horizontal or vertical edge `(z,w)`-/
-noncomputable def EdgeIntegral {E : Type u} [NormedAddCommGroup E]
+def EdgeIntegral {E : Type u} [NormedAddCommGroup E]
     [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (e : ℂ × ℂ) : E :=
     let (z,w) := e
     if z.re = w.re then
@@ -886,16 +875,16 @@ noncomputable def EdgeIntegral {E : Type u} [NormedAddCommGroup E]
 
 /-- Given a `Gridable K` and `δ > 0`, along with function `f : ℂ → E`, this function evaluates the integral of `f`
 over the `GridContour` of `K`, with resolution `δ`. -/
-noncomputable def GridContourIntegral {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : E :=
+def GridContourIntegral {E : Type u} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) : E :=
     let ε := 2 * δ
     have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
-    let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+    let V := (Mesh hδ (Box K hε)).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
     let edges := DirectedEdgeSetOriented K hδ V
     edges.sum (fun e ↦ EdgeIntegral f e)
 
--- Auxiliary function to convert an edge into an interval
-noncomputable def edgeInterval (e : ℂ × ℂ) : Set ℂ :=
+-- Auxiliary function to convert an edge into an interval in ℂ
+def edgeInterval (e : ℂ × ℂ) : Set ℂ :=
     let (z,w) := e
     if z.re = w.re then
       {z.re} ×ℂ Icc (min z.im w.im) (max z.im w.im)
@@ -904,7 +893,7 @@ noncomputable def edgeInterval (e : ℂ × ℂ) : Set ℂ :=
     else ∅
 
 -- Edge Intervals don't touch K
-lemma edge_interval_inter_empty (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) (h : one_common_square K z w δ):
+lemma edge_interval_inter_empty (h : one_common_square K hδ z w):
      edgeInterval (z,w) ∩ K = ∅ := by
     by_contra h_contra
     rw [←ne_eq, ←Set.nonempty_iff_ne_empty] at h_contra
@@ -1103,18 +1092,18 @@ lemma edge_interval_inter_empty (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 <
             simp [h₁, h₁', h₃, h'' ] at h
 
 -- Gets the Grid Contour as a Union of edge intervals
-noncomputable def GridContourBoundary (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
+def GridContourBoundary (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
-  let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+  let V := (Mesh hδ (Box K hε)).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
   let edges := (DirectedEdgeSetOriented K hδ V)
   ⋃ e ∈ edges, edgeInterval e
 
 -- Gets the the set enclosed by the Grid Contour as a union of closed squares
-noncomputable def GridContourClosure (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
+def GridContourClosure (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
-  let V := (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+  let V := (Mesh hδ (Box K hε)).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
   ⋃ v ∈ V, closed_square v δ
 
 lemma subset_grid_contour_area (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : K ⊆ GridContourClosure K hδ := by
@@ -1126,10 +1115,10 @@ lemma subset_grid_contour_area (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < �
   let z₁ := pair.1
   let z₂ := pair.2
   have h : (z₁, z₂) = Box K hε := by rfl
-  let V := (Mesh (z₁, z₂) hδ)
+  let V := (Mesh hδ (z₁, z₂))
   let V' := V.filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
   dsimp
-  have hx' : x ∈ MeshSet (Box K hε) hδ := mem_of_subset_of_mem (subset_mesh K hε hδ) hx
+  have hx' : x ∈ MeshSet hδ (Box K hε) := mem_of_subset_of_mem (subset_mesh K hδ hε) hx
   unfold MeshSet at hx'
   rw [←h] at hx'
   rw [mem_iUnion] at hx'
@@ -1153,7 +1142,7 @@ lemma subset_grid_contour_area (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < �
 
   · exact hx'
 
-noncomputable def GridContourCollection (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Finset ℂ :=
+def GridContourCollection (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Finset ℂ :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
-  (Mesh (Box K hε) hδ).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
+  (Mesh hδ (Box K hε)).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
