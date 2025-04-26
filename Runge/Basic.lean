@@ -18,6 +18,8 @@ These results serve as the groundwork for the Separation Lemma, Approximation Le
 
 -/
 
+-- TODO : Move all defs and results of `square`, `square_integral` and `Mesh` here
+
 open Set TopologicalSpace RatFunc ContinuousMap Metric Complex Polynomial
 
 /-- **Unnamed Lemma** This gives us some specific conditions under which we can assert that two open sets in ℂ
@@ -119,48 +121,7 @@ lemma open_subset_eq_of_boundary_disjoint_and_intersects_components {U V : Set �
       have hz_in_Wz : z ∈ W := mem_connectedComponentIn hzU
       exact hWV_subset' hz_in_Wz
 
-
     · exact h₂
-
-
-#check Complex.integral_boundary_rect_eq_zero_of_differentiable_on_off_countable
--- In the hypothesis for Runge's Theorem, f is Differentiable over all of Ω, and thus over all of K. Since Γ would be within Ω \ K,
--- we shall only take the hypothesis that f is diffentaible on the closed square.
--- consider making all rectangles squares... We anyway need unions of squares
-
-noncomputable def integral_boundary_rect {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z w : ℂ) := (∫ x : ℝ in z.re..w.re, f (x + z.im * I) - ∫ x : ℝ in z.re..w.re, f (x + w.im * I)) +
-  I • (∫ y : ℝ in z.im..w.im, f (w.re + y * I) - ∫ y : ℝ in z.im..w.im, f (z.re + y * I))
-
--- TODO: Fix this statement
-lemma integral_boundary_rect_eq_circleIntegral {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z w : ℂ) (s : Set ℂ) (hs : s.Countable)
-    (Hc : ContinuousOn f (closedBall ((z + w) / 2) (‖z-w‖ / √2) \ {((z + w) / 2)}))
-    (Hd : ∀ x ∈ (ball ((z + w) / 2) (‖z-w‖ / √2)) \ s, DifferentiableAt ℂ f x) :
-      (∫ x : ℝ in z.re..w.re, ((x + z.im * I)⁻¹ • f (x + z.im * I)) -
-      ∫ x : ℝ in z.re..w.re, ((x + w.im * I)⁻¹ • f (x + w.im * I))) +
-      I • ∫ y : ℝ in z.im..w.im, ((w.re + y * I)⁻¹ • f (w.re + y * I)) -
-      I • ∫ y : ℝ in z.im..w.im, ((z.re + y * I)⁻¹ • f (z.re + y * I)) = ∮ ζ in C((z + w) / 2, ‖z-w‖ / √2), f ζ := by sorry
-
-variable {E : Type u} [NormedAddCommGroup E][NormedSpace ℂ E] [CompleteSpace E]
-    (f : ℂ → E) (z : ℂ)(R : ℝ) (hR : 0 < R)
-#check ∮ ζ in C(z, R), f ζ
-
-lemma CircleIntegral_eq_integral_boundary_rect {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z : ℂ)(R : ℝ) (hR : 0 < R) (Hd : DifferentiableOn ℂ f (closedBall z R)) :
-    (∮ ζ in C(z, R), f ζ) = (integral_boundary_rect f (z - (R / 2) *  (1 + I)) (z + (R / 2) * (1 + I))) := by
-    simp [integral_boundary_rect]
-    -- rw [integral_boundary_rect_eq_circleIntegral f]
-    sorry
-
-
-/--**Cauchhy's Integral Formula** for a square(?). If `f : ℂ → E` is complex differentiable on a closed square(?) with diagonal points `z` and `w`,
-then for any point `a` in the interior, the integral of `(c - a)⁻¹ • f c` along the boundary evaluates to `2πI • f(a)`-/
-theorem DifferentiableOn.integral_boundary_rect_sub_inv_mul {E : Type u} [NormedAddCommGroup E]
-    [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (z w a : ℂ)
-    (ha: a ∈ (Ioo (min z.re w.re) (max z.re w.re) ×ℂ Ioo (min z.im w.im) (max z.im w.im)))
-    (Hd: DifferentiableOn ℂ f ((Icc (min z.re w.re) (max z.re w.re) ×ℂ Icc (min z.im w.im) (max z.im w.im)))) :
-    integral_boundary_rect (fun c ↦ ((c - a)⁻¹ • f c)) z w = (2 * π * I) • f a := by sorry
 
 variable (F : RatFunc ℂ)
 
@@ -189,7 +150,6 @@ def no_pole_in' (E : Set (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := ¬ pole_in'
 def only_poles_in' (E : Set (OnePoint ℂ)) (F : RatFunc ℂ) : Prop := pole_in' E F ∧ no_pole_in' (Eᶜ) F
 
 -- theorem only_pole_at_infty_pol {F : RatFunc ℂ} (h : pole_at ∞ F) :
-
 
 
 /-- Defined coercion from Set ℂ to Set (OnePoint ℂ) and backwards -/

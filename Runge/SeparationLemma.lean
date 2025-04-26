@@ -8,7 +8,7 @@ import Runge.GridContour
 This file contains the proof of the **Separation Lemma**, which is a key result in complex analysis.
 The lemma establishes that for a compact set `K` in the complex plane and a function `f` that is
 complex differentiable on an open set `Ω` containing `K`, there exists a positive resolution `δ`
-such that the integral of `(z - a)⁻¹ • f(z)` over the grid contour of `K` equals `2 * π * I * f(a)`
+such that the integral of `(z - a)⁻¹ * f(z)` over the grid contour of `K` equals `2 * Real.pi * I * f(a)`
 for any point `a ∈ K`. Additionally, the grid contour is contained in the complement of `K` within `Ω`.
 
 ## Main Results
@@ -29,10 +29,7 @@ for any point `a ∈ K`. Additionally, the grid contour is contained in the comp
 - `closed_square` and `open_square`: Definitions of closed and open squares in the complex plane.
 -/
 
-open Complex Set Finset Metric RatFunc
-
-#check Continuous.exists_forall_le'
-#check IsCompact.exists_isMinOn
+open Complex Set Finset Metric RatFunc Real
 
 -- Compact set `K` has a point of minimal distance to any other set `U`
 lemma point_of_least_sep (K U : Set ℂ) [Gridable K] :
@@ -437,29 +434,38 @@ lemma grid_contour_sep (K : Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
 -- Integral over the grid contour is the sum integral of individual squares!
 lemma gc_integral_eq_sum_sq_integral {E : Type u} [NormedAddCommGroup E]
     [NormedSpace ℂ E] [CompleteSpace E] (f : ℂ → E) (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) :
-    GridContourIntegral K hδ f  = ∑ z ∈ GridContourCollection K hδ, (square_integral f z hδ ):= by sorry
+    GridContourIntegral K hδ f  = ∑ z ∈ GridContourCollection K hδ, (square_integral f z hδ ):= by
+
+    -- *get help*
+    sorry
 
 -- Cauchy's Integral Formula for a square
 lemma DifferentiableOn.square_integral_sub_inv_smul {v : ℂ} {δ : ℝ} (hδ : 0 < δ)
   {f : ℂ → ℂ} (hf : ∀ x ∈ closed_square v δ, DifferentiableAt ℂ f x) :
-  ∀ a ∈ open_square v δ, square_integral (fun z ↦ (z - a)⁻¹ • f z) v hδ = (2 * π * I) • f a := by sorry
+  ∀ a ∈ open_square v δ, square_integral (fun z ↦ (z - a)⁻¹ * f z) v hδ = (2 * Real.pi * I) * f a := by
+
+  -- Done in PNT+, PR in mathlib
+  sorry
 
 lemma DifferentiableOn.square_integral_eq_zero {v : ℂ} {δ : ℝ} (hδ : 0 < δ)
   {f : ℂ → ℂ} (hf : ∀ x ∈ closed_square v δ, DifferentiableAt ℂ f x) :
-  ∀ a ∉ closed_square v δ, square_integral (fun z ↦ (z - a)⁻¹ • f z) v hδ = 0 := by sorry
+  ∀ a ∉ closed_square v δ, square_integral (fun z ↦ (z - a)⁻¹ * f z) v hδ = 0 := by
+
+  -- Look this up, low priority
+  sorry
 
 #check Finset.sum_eq_single
 
 -- Cauchy's Integral Formula for a Grid Contour
 lemma DifferentiableOn.grid_contour_integral_sub_inv_smul {Ω K : Set ℂ} {f : ℂ → ℂ} {δ : ℝ}
   (hδ : 0 < δ) (hΩ : IsOpen Ω) (hΩK : K ⊆ Ω) [Gridable K] (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
-  ∀ a ∈ K, GridContourIntegral K hδ (fun x ↦ (x - a)⁻¹ • f x) = (2 * π * I) • f a := by
+  ∀ a ∈ K, GridContourIntegral K hδ (fun x ↦ (x - a)⁻¹ * f x) = (2 * Real.pi * I) * f a := by
     intro a ha
     apply mem_of_subset_of_mem (subset_grid_contour_area K hδ) at ha
     let ε := 2 * δ
     have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
     let V := (Mesh hδ (Box K hε)).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
-    have h : GridContourClosure K hδ = ⋃ v ∈ V, closed_square v δ := by rfl
+    have h : GridContourArea K hδ = ⋃ v ∈ V, closed_square v δ := by rfl
     rw [h, mem_iUnion] at ha
     obtain ⟨w, hw⟩ := ha
     simp at hw
@@ -470,18 +476,22 @@ lemma DifferentiableOn.grid_contour_integral_sub_inv_smul {Ω K : Set ℂ} {f : 
 
     -- When a is in the interior of any square
     | inl hw =>
+      -- make a `lemma` for this as well
+      -- State the lemma as need, consider an iff statement
       have hw' : ∀ v' ∈ V, v' ≠ w → a ∉ closed_square v' δ := by sorry
       have h' : GridContourCollection K hδ = V := by rfl
-      let F (z : ℂ) := if z = w then (2 * π * I) • f a else 0
+      let F (z : ℂ) := if z = w then (2 * Real.pi * I) * f a else 0
 
       have h₁ : ∀ v ∈ V, ∀ x ∈ closed_square v δ, DifferentiableAt ℂ f x := by
         intro v hv x hx
+        -- make a `lemma` for this in GridContour
+        -- ∀ v ∈ Mesh, closed_square v δ ⊆ Ω
         have h₂' : closed_square v δ ⊆ Ω := by sorry
         apply hf
         exact mem_of_subset_of_mem h₂' hx
 
       have h' : GridContourCollection K hδ = V := by rfl
-      have h'': square_integral (fun x ↦ (x - a)⁻¹ • f x) w hδ = (2 * π * I) • f a := by
+      have h'': square_integral (fun x ↦ (x - a)⁻¹ * f x) w hδ = (2 * Real.pi * I) * f a := by
         apply DifferentiableOn.square_integral_sub_inv_smul hδ (h₁ w hv) a
         exact hw
 
@@ -493,17 +503,33 @@ lemma DifferentiableOn.grid_contour_integral_sub_inv_smul {Ω K : Set ℂ} {f : 
         exact hw' v' hv' hv''
 
     -- When a is on the boundary of any square
-    | inr hw => sorry
+    | inr hw =>
+      -- *GET HELP*
+      sorry
+
+lemma DifferentiableOn.inv_two_pi_grid_contour_integral {Ω K : Set ℂ} {f : ℂ → ℂ} {δ : ℝ}
+  (hδ : 0 < δ) (hΩ : IsOpen Ω) (hΩK : K ⊆ Ω) [Gridable K] (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
+  ∀ a ∈ K, (2 * Real.pi * I)⁻¹ * GridContourIntegral K hδ (fun x ↦ (x - a)⁻¹ * f x) =  f a := by
+  intro a ha
+  have :  GridContourIntegral K hδ (fun x ↦ (x - a)⁻¹ * f x) = (2 * Real.pi * I) * f a := DifferentiableOn.grid_contour_integral_sub_inv_smul _ hΩ hΩK hf a ha
+  rw [this, ← mul_assoc]
+  simp only [mul_inv_rev, inv_I, neg_mul]
+  ring
+  simp only [I_sq, neg_mul, one_mul, neg_neg]
+  rw [Complex.mul_inv_cancel]
+  simp
+  rw [Complex.ofReal_ne_zero]
+  exact Real.pi_ne_zero
 
 
 /-- **Separation Lemma**: Given a compact set `K` and a function `f : ℂ → ℂ` that is complex differentiable on
-an open set `Ω`, containing `K`, there exists a `δ > 0` such that the integral of `(z - a)⁻¹ • f(z)` over the
-grid contour of `K` is equal to `2 * π * I * f(a)`, where `a` is a point in `K` and the grid contour is
+an open set `Ω`, containing `K`, there exists a `δ > 0` such that the integral of `(z - a)⁻¹ * f(z)` over the
+grid contour of `K` is equal to `2 * Real.pi * I * f(a)`, where `a` is a point in `K` and the grid contour is
 contained in `Ω \ K`.
 -/
 theorem separation_lemma {Ω K : Set ℂ} {f : ℂ → ℂ} (hΩ : IsOpen Ω) (hΩ₁ : Ωᶜ.Nonempty) (hΩK : K ⊆ Ω) [Gridable K]
   (hf : ∀ x ∈ Ω, DifferentiableAt ℂ f x) :
-  ∃ (δ : ℝ) (hδ : 0 < δ), (∀ a ∈ K, GridContourIntegral K hδ (fun z ↦ (z - a)⁻¹ • f z)  = (2 * π * I) • f a) ∧
+  ∃ (δ : ℝ) (hδ : 0 < δ), (∀ a ∈ K, GridContourIntegral K hδ (fun z ↦ (z - a)⁻¹ * f z)  = (2 * Real.pi * I) * f a) ∧
   (GridContourBoundary K hδ ⊆ Ω \ K) := by
   have hΩK' : Disjoint K Ωᶜ := disjoint_compl_right_iff_subset.mpr hΩK
   obtain ⟨x₀, hx₀, hKx₀⟩ := point_of_least_sep K Ωᶜ

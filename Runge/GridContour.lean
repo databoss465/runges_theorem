@@ -11,32 +11,25 @@ to approximate the contour integral of a function over the boundary of the compa
 ## Main Definitions
 * `open_square` and `closed_square`: Definitions of open and closed squares in the complex plane.
 * `square_integral`: Definition of the integral of a function along the boundary of a square.
-* `Gridable`: A typeclass for nonempty compact sets where we can decide if a given square
-  intersects it or not.
+* `Gridable`: A typeclass for nonempty compact sets where we can decide if a given square intersects it or not.
 * `Mesh`: A function that generates the lattice points in a `Box` around a compact set.
-* `MeshSet`: A function that generates the area covered by the mesh as a union of
-  closed squares.
-* `MeshSet'`: A function that generates the area covered by the mesh as a single
-  complex rectangle.
+* `MeshSet`: A function that generates the area covered by the mesh as a union of closed squares.
+* `MeshSet'`: A function that generates the area covered by the mesh as a single complex rectangle.
 * `mesh_intervals`: An equivalence of two definitions of `MeshSet`.
 * `subset_mesh`: The compact set for which we are generating the mesh is contained
   in the `MeshSet` of the `Box` around it.
-* `one_common_square`: A function that indicates that of the two squares sharing a
-  given edge
-  only one of them intersects the compact set.
-* `GridContour`: A function that takes compact set `K` and resolution `δ` and
-   generates the contour as a `SimpleGraph` with vertices in the mesh and edges
-   along the squares.
-* `DirectedEdgeSetOriented`: A function to generate the set of directed edges
-  so that the contour is oriented in CCW direction.
-* `GridContourIntegral`: Represents the integral of a function over the grid contour
-  as a piecewise integral over the edges
+* `one_common_square`: A function that indicates that of the two squares sharing a given edge only one of them intersects the compact set.
+* `GridContour`: A function that takes compact set `K` and resolution `δ` and generates the contour as a `SimpleGraph` with vertices in the mesh and edges along the squares.
+* `DirectedEdgeSetOriented`: A function to generate the set of directed edges so that the contour is oriented in CCW direction.
+* `GridContourIntegral`: Represents the integral of a function over the grid contour as a piecewise integral over the edges
 * `edge_interval_inter_empty`: No edge of the grid contour intersects the compact set
 * `GridContourBoundary`: The union of edges as intervals
-* `GridContourClosure`: The grid contour along with its interior
+* `GridContourArea`: The grid contour along with its interior
 * `GridContourCollection`: Points of the mesh that are on the Grid Contour
-* `subset_grid_contour_area`: The compact set `K` is contained inside the `GridContourClosure`
+* `subset_grid_contour_area`: The compact set `K` is contained inside the `GridContourArea`
 -/
+
+-- TODO : Move all `GridContour` and `GridContourIntegral` defs and results here
 
 open Complex Set Finset SimpleGraph
 
@@ -631,7 +624,7 @@ theorem one_common_square_symm {K : Set ℂ} [Gridable K] : one_common_square K 
 line segemnts using a grid of resolution `δ`, as a simple graph with adjacency given by the conjuction of `‖z-w‖=δ` and
 the proposition that only one square with edge `z w` intersects K
 -/
-def ContourGraph (V : Finset ℂ) : SimpleGraph ℂ :=
+def ContourGraph /- (V : Finset ℂ) -/ : SimpleGraph ℂ :=
 { Adj := fun z w ↦ (‖z-w‖ = δ) ∧ (one_common_square K hδ z w),
   symm := by
     intros z w h
@@ -1100,15 +1093,15 @@ def GridContourBoundary (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Se
   ⋃ e ∈ edges, edgeInterval e
 
 -- Gets the the set enclosed by the Grid Contour as a union of closed squares
-def GridContourClosure (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
+def GridContourArea (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : Set ℂ :=
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
   let V := (Mesh hδ (Box K hε)).filter (fun v ↦ ((closed_square v δ) ∩ K).Nonempty)
   ⋃ v ∈ V, closed_square v δ
 
-lemma subset_grid_contour_area (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : K ⊆ GridContourClosure K hδ := by
+lemma subset_grid_contour_area (K: Set ℂ) [Gridable K] {δ : ℝ} (hδ : 0 < δ) : K ⊆ GridContourArea K hδ := by
   intro x hx
-  unfold GridContourClosure
+  unfold GridContourArea
   let ε := 2 * δ
   have hε : 0 < ε := by apply mul_pos; linarith; exact hδ
   let pair := (Box K hε)
